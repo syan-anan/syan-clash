@@ -1,0 +1,58 @@
+# runtime state
+config.json
+lab/*.exe
+lab/*.log
+lab/*.out
+lab/*.err
+lab/*.zip
+# downloaded cores, generated configs and their caches
+lab/cores/
+.l-skill-tasks/
+
+# screenshot attempt leftovers (headless browser profiles)
+lab/chromeprofile*/
+lab/shots/
+lab/*.png
+
+# scratch space for anything temporary the lab scripts need
+lab/tmp/
+
+# --- publish hygiene (added 2026-10-04) --------------------------------------
+# Everything below is runtime state, user data, build output or internal notes.
+# config.json (already above) holds the user's own inbound credentials.
+nodes-base.json
+subscriptions.json
+panel.json
+runtime.json
+
+# Internal development notes. HANDOFF.md quotes a live subscription URL+token.
+HANDOFF.md
+
+# Embedded-browser profiles: cookies, sign-ins, cache.
+webview-data/
+webview-data-login/
+
+# Core binaries and their data, unpacked from the embedded bundle at first run.
+cores/
+.runtime/
+
+# Stray directory a mistyped script path produced.
+%SystemDrive%/
+
+# Local helper written for one specific patch round.
+apply-patch.ps1
+
+# Built binaries: ship these as release assets, not as source.
+*.exe
+
+# Logs.
+*.log
+
+# The whole lab: evidence, backups and scratch no clone needs.
+lab/
+
+# Editor/backup leftovers.
+*.orig*
+*.bak
+
+sysproxy-state.json
