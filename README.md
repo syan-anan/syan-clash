@@ -317,6 +317,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File lab\cores.ps1
 | geosite.dat / geoip.metadb | `internal/corebundle/assets/*.gz` | GPL-3.0（MetaCubeX/meta-rules-dat） |
 | wintun.dll | `internal/corebundle/assets/wintun.dll.gz`、`third_party/wintun/` | WireGuard Prebuilt Binaries License，见 `third_party/wintun/LICENSE-wintun.txt` |
 | WebView2Loader.dll | `third_party/webview2/`、`cmd/desktop/assets/` | Microsoft WebView2 SDK 条款 |
-| 图标与内嵌字体 | `syan-clash.ico`、`internal/control/web/fonts/` | 随本项目 |
+| 界面字体 `syan-round.woff2` | `internal/control/web/fonts/` | 本项目自有（自制字体，非第三方素材） |
 
-更细的选型与许可证核对记录见 `docs/REUSE.md`。
+完整清单（含各组件许可证全文位置）见 [`THIRD-PARTY.md`](THIRD-PARTY.md)；更细的选型与许可证核对记录见 `docs/REUSE.md`。
