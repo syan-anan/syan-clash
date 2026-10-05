@@ -37,7 +37,11 @@ $ldflags = "-X main.version=$Version -X main.buildStamp=$stamp -X main.buildComm
 if (-not $Console) { $ldflags = '-H=windowsgui ' + $ldflags }
 # Splatting hands the go tool one argument per element; letting PowerShell
 # rebuild the command line from a string is what mangles flags with spaces.
-$goArgs = @('build', '-ldflags', $ldflags, '-o', $Out, './cmd/desktop')
+#
+# -trimpath rewrites the absolute source paths the compiler would otherwise
+# bake into the binary (debug info, panic traces) into module-relative ones,
+# so a build made in one checkout does not advertise where that checkout sat.
+$goArgs = @('build', '-trimpath', '-ldflags', $ldflags, '-o', $Out, './cmd/desktop')
 & go @goArgs
 if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 
