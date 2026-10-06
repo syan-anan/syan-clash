@@ -110,6 +110,8 @@ func TestAPIPathsReferencedByTheConsoleExist(t *testing.T) {
 		"/api/cores/install", "/api/cores/start", "/api/cores/stop",
 		"/api/cores/config", "/api/cores/updates", "/api/cores/update",
 		"/api/cores/proxies", "/api/cores/select", "/api/cores/pick",
+		// "全部测速" measures a group without switching; the 选优 buttons use pick.
+		"/api/cores/sweep",
 		"/api/cores/delay", "/api/cores/mode", "/api/cores/traffic", "/api/cores/connections",
 		// P34: the kernel page reads and writes its tuning block (log level,
 		// sniffer, tunnel details) through one small document.
@@ -224,6 +226,7 @@ func TestConsoleDeclaresItsKeyFeatures(t *testing.T) {
 		"地理数据补全":    `id="core-geo-fetch"`,
 		"当前代理卡片":    `id="ov-node"`,
 		"仪表盘测速":     `id="ov-test"`,
+		"仪表盘全部测速选优": `id="ov-test-all"`,
 		"仪表盘模式切换":   `id="ov-mode"`,
 		"配置备份":      `id="backup-export"`,
 		"开机自启":      `id="autostart"`,

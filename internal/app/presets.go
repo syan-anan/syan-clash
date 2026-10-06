@@ -160,6 +160,25 @@ type PresetView struct {
 	TotalCount   int `json:"total_count"`
 }
 
+// DefaultPresetID is the bundle a fresh client starts with: 国内直连 / 国外走节点.
+const DefaultPresetID = "smart-split"
+
+// ApplyDefaultPresetOnce gives a new install its default routing rules without
+// making the user find the 规则 page first. It runs at most once: the flag it
+// leaves behind is also set by any manual apply or remove, so a user who deleted
+// the preset does not get it back on the next launch.
+func (a *App) ApplyDefaultPresetOnce(ctx context.Context) {
+	if a.PresetAutoDone() {
+		return
+	}
+	view, err := a.ApplyPreset(ctx, DefaultPresetID)
+	if err != nil {
+		a.log.Warnf("默认预设规则集应用失败：%v", err)
+		return
+	}
+	a.log.Infof("默认预设规则集已应用：%d/%d 条规则", view.AppliedCount, view.TotalCount)
+}
+
 // PresetList reports the built-in presets and their current application state.
 func (a *App) PresetList() []PresetView {
 	existing := a.Profile().Rules
@@ -185,8 +204,17 @@ func (a *App) PresetList() []PresetView {
 }
 
 // ApplyPreset adds every rule of a preset that is not present yet, inserting
-// them before the catch-all rule.
+// them before the catch-all rule. A manual apply counts as the user having
+// dealt with the built-in default, so the startup pass never re-adds it.
 func (a *App) ApplyPreset(ctx context.Context, id string) (PresetView, error) {
+	view, err := a.applyPreset(ctx, id)
+	if err == nil {
+		a.markPresetAutoDone()
+	}
+	return view, err
+}
+
+func (a *App) applyPreset(ctx context.Context, id string) (PresetView, error) {
 	var preset Preset
 	found := false
 	for _, p := range Presets() {
@@ -241,8 +269,17 @@ func (a *App) ApplyPreset(ctx context.Context, id string) (PresetView, error) {
 	return a.presetView(id), nil
 }
 
-// RemovePreset deletes every rule that belongs to a preset.
+// RemovePreset deletes every rule that belongs to a preset. Removing one is
+// the clearest possible statement that the default is not wanted.
 func (a *App) RemovePreset(ctx context.Context, id string) (PresetView, error) {
+	view, err := a.removePreset(ctx, id)
+	if err == nil {
+		a.markPresetAutoDone()
+	}
+	return view, err
+}
+
+func (a *App) removePreset(ctx context.Context, id string) (PresetView, error) {
 	var preset Preset
 	found := false
 	for _, p := range Presets() {

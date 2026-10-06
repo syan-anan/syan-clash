@@ -384,14 +384,13 @@
 
   /* ---------- tables ---------- */
 
-  /* Virtual node list: only the rows in view exist in the DOM, so a
-     thousand-node subscription scrolls like a ten-node one. The spacer rows
-     stand in for everything above and below the window, which is why the row
-     height has to stay uniform (see renderNodeWindow). */
+  /* Virtual node list: only the cards in view exist in the DOM, so a
+     thousand-node subscription scrolls like a ten-node one. Two spacer divs
+     stand in for everything above and below the window, which is why every
+     display row keeps a height the renderer can predict (see
+     renderNodeWindow). */
   .vscroll { max-height: min(62vh, 620px); overflow-y: auto; overflow-x: hidden; }
   .vscroll table { table-layout: fixed; }
-  .vscroll tr[data-node-row] { height: 45px; }
-  .vscroll tr.vpad td { padding: 0; border: 0; }
   .vscroll tbody td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
@@ -644,10 +643,92 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
   .detail-grid .v { word-break: break-all; }
   #conns-body tr[data-conn-id] { cursor: pointer; }
   .drag-grip { cursor: grab; color: var(--sub); margin-right: 6px; user-select: none; }
-  #subs-body tr.sub-dragging { opacity: .45; }
-  #subs-body tr.sub-drop-target > td { box-shadow: inset 0 2px 0 var(--accent); }
+  #subs-body .sub-card.sub-dragging { opacity: .45; }
+  #subs-body .sub-card.sub-drop-target { box-shadow: inset 0 0 0 2px var(--accent); }
+  /* ---- 仪表盘快捷开关 / 配置管理订阅卡片 ---- */
+  .dash-controls { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-bottom: 18px; }
+  .dash-controls .card { margin-bottom: 0; }
+  .dash-note { font-size: 12.5px; margin: 10px 0 0; }
+  .sub-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .sub-grid { grid-template-columns: minmax(0, 1fr); } }
+  .sub-card {
+    min-width: 0; border: 1px solid var(--bd); border-radius: 18px; padding: 14px 16px;
+    background: rgba(255, 255, 255, .04);
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  html.light .sub-card { background: rgba(255, 255, 255, .55); }
+  .sub-card:hover { border-color: rgba(255, 255, 255, .3); }
+  .sub-card.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .sub-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .sub-card-head b { min-width: 0; font-size: 14.5px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-card-acts { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--bd); background: rgba(255, 255, 255, .05); color: var(--sub);
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .icon-btn:hover { color: var(--ink); border-color: rgba(255, 255, 255, .32); }
+  .icon-btn.danger:hover { color: var(--tag-red-tx); border-color: var(--tag-red-tx); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .sub-card-body { margin-top: 12px; display: grid; gap: 8px; }
+  .sub-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+  .sub-line .k { color: var(--sub); }
+  .sub-line .v { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .sub-card .pbar { margin-top: 0; }
+  .sub-card-foot { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line-soft); display: flex; align-items: center; gap: 10px; }
+  .sub-card-foot .faint { font-size: 11.5px; margin-left: auto; }
+  .sub-editor { grid-column: 1 / -1; border: 1px solid var(--bd); border-radius: 16px; padding: 12px 14px; }
+  .sub-editor[hidden] { display: none; }
   .qr-wrap { display: flex; justify-content: center; margin-top: 14px; }
   .qr-img { width: 232px; height: 232px; border-radius: 14px; background: #fff; padding: 10px; image-rendering: pixelated; }
+  /* ---------- 仪表盘 / 配置管理：卡片网格 ---------- */
+  .page-head.hero { align-items: flex-start; margin: 2px 0 18px; }
+  .page-head.hero .head-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .page-head.hero h2 { font-size: 25px; letter-spacing: .3px; }
+  .page-head.hero .head-text p { margin: 0; color: var(--sub); font-size: 13px; }
+  .page-head.hero .head-acts { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row[hidden] { display: none; }
+
+  .dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+  .dash-slot { display: contents; }
+  .dash-card { display: flex; align-items: center; gap: 14px; margin-bottom: 0; min-height: 96px; }
+  .dash-card .dash-k { min-width: 0; }
+  .dash-card .dash-k .t { font-size: 13.5px; font-weight: 700; }
+  .dash-card .dash-k .d { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.45; }
+  .dash-card .dash-right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+  .dash-card .dash-acts { display: flex; align-items: center; gap: 10px; }
+  .dash-card .dash-col { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; min-width: 0; }
+  .dash-card.dash-wide { grid-column: 1 / -1; }
+  .dash-card .dash-v.masked { letter-spacing: 1px; }
+  .dash-card .dash-v { font-size: 16px; font-weight: 800; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 900px) {
+    .dash-grid { grid-template-columns: 1fr; }
+    .dash-card { min-height: 0; }
+  }
+
+  .sub-tools { padding: 14px 18px; }
+  .icon-btn.lg { width: 38px; height: 38px; border-radius: 12px; }
+  .icon-btn.lg svg { width: 17px; height: 17px; }
+  .sub-sec { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 15px; font-weight: 800; }
+  .sub-sec svg { width: 17px; height: 17px; color: var(--accent); }
+  .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  /* 代理组标签条：一行不换行，组再多也不会把节点列表挤出屏幕，
+     横向滚动看剩下的。 */
+  #nodes-groups { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; margin-bottom: 16px; }
+  #nodes-groups::-webkit-scrollbar { height: 6px; }
+  #nodes-groups .chip { flex: 0 0 auto; }
+  .chip {
+    border: 1px solid var(--bd); background: var(--hover); color: var(--sub);
+    border-radius: 11px; padding: 6px 13px; cursor: pointer; font-size: 12.5px;
+    font-family: var(--font); font-weight: 650; line-height: 1.4; white-space: nowrap;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: rgba(255, 255, 255, .3); }
+  html.light .chip:hover { border-color: rgba(255, 255, 255, .95); }
+  .chip.active { color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .sub-bar { display: flex; align-items: center; gap: 10px; }
+  .sub-bar .pbar { flex: 1; }
   /* ---------- P2-2 外观：主题色 / 字体 / 背景 ----------
 
      The 设置 page writes one class per choice onto <html>; every value below is
@@ -695,20 +776,47 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
   .seg button.swatch-amber { background: #fbbf24; }
   .seg button.swatch-green { background: #34d399; }
   .seg button.swatch.active { box-shadow: 0 0 0 2px var(--ink); }
-  /* P1-1 节点分组行：与节点行同高，虚拟列表的算术才成立 */
-  .vscroll tr[data-group-row] { height: 45px; }
-  .vscroll tr[data-group-row] td {
-    background: var(--panel-2); color: var(--ink); font-weight: 700; cursor: pointer;
-    border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+  /* P1-1 代理组：卡片网格。虚拟列表按「显示行」切片，分组标题自己占一整行，
+     所以行高由渲染器显式写死（见 renderNodeWindow），滚动位置才能精确还原。 */
+  #nodes-scroll { padding: 12px; }
+  .node-grid { display: block; }
+  .ng-pad { width: 100%; }
+  .ng-row { display: grid; gap: 12px; align-items: start; padding-bottom: 12px; }
+  .ng-empty { padding: 6px 2px 18px; }
+  .ng-hdr {
+    display: flex; align-items: center; gap: 4px; padding: 0 2px 12px;
+    color: var(--ink); font-weight: 700; font-size: 13px;
+    cursor: pointer; user-select: none;
   }
-  .vscroll tr[data-group-row]:hover td { background: var(--hover); }
+  .ng-hdr:hover { color: var(--accent); }
+  .node-card {
+    display: flex; flex-direction: column; gap: 5px;
+    min-height: 92px; padding: 10px 12px; border-radius: 14px;
+    border: 1px solid var(--line-soft); background: var(--panel-2);
+    cursor: pointer; overflow: hidden;
+    transition: border-color .15s ease, background .15s ease, opacity .15s ease;
+  }
+  .node-card.switching { opacity: .6; }
+  .node-card:hover { border-color: var(--bd); background: var(--hover); }
+  .node-card.row-sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .nc-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .nc-refresh { width: 24px; height: 24px; border-radius: 8px; flex: 0 0 auto; opacity: .55; }
+  .node-card:hover .nc-refresh { opacity: 1; }
+  .nc-refresh svg { width: 13px; height: 13px; }
+  .nc-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nc-mark { display: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+  .node-card.row-sel .nc-mark { display: block; }
+  .nc-meta { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--sub); }
+  .nc-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nc-acts { display: flex; align-items: center; gap: 6px; margin-top: auto; }
+  .nc-acts .btn.sm { padding: 4px 9px; }
   .node-grp-caret {
-    display: inline-block; width: 0; height: 0; margin-right: 7px; vertical-align: 1px;
+    display: inline-block; width: 0; height: 0; margin-right: 4px; vertical-align: 1px;
     border-left: 4.5px solid transparent; border-right: 4.5px solid transparent;
     border-top: 5px solid currentColor; transition: transform .18s ease;
   }
-  .vscroll tr[data-group-row].folded .node-grp-caret { transform: rotate(-90deg); }
-  .node-grp-count { color: var(--sub); font-weight: 500; margin-left: 6px; }
+  .ng-hdr.folded .node-grp-caret { transform: rotate(-90deg); }
+  .node-grp-count { color: var(--sub); font-weight: 500; margin-left: 2px; }
   /* P2-4 延迟 sparkline：内联 SVG，无外部资源 */
   .spark { display: inline-block; vertical-align: -3px; width: 46px; height: 16px; margin-left: 7px; opacity: .85; }
   .spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
@@ -785,21 +893,22 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
       </div>
     </div>
     <nav class="nav" id="nav">
-      <button data-page="panel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.2-3.2 3.8-4.8 7-4.8s5.8 1.6 7 4.8"/></svg>
-        <span>小白</span>
-      </button>
+
       <button data-page="overview" class="active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-        <span>概览</span>
+        <span>仪表盘</span>
       </button>
       <button data-page="nodes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M12 11.5L6.6 16.8M12 11.5l5.4 5.3"/></svg>
-        <span>节点</span>
+        <span>代理组</span>
       </button>
       <button data-page="subs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2.5"/></svg>
-        <span>订阅</span>
+        <span>配置管理</span>
+      </button>
+      <button data-page="panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.2-3.2 3.8-4.8 7-4.8s5.8 1.6 7 4.8"/></svg>
+        <span>小白</span>
       </button>
       <button data-page="conns">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2.5-6 3 12 2.5-6h6"/></svg>
@@ -842,7 +951,7 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
 
   <div class="main">
     <header class="topbar">
-      <h1 id="page-title">概览</h1>
+      <h1 id="page-title">仪表盘</h1>
       <div class="spacer"></div>
       <span class="pill" id="core-pill" title="当前运行的内核"><span class="dot" id="core-pill-dot"></span><span id="core-pill-text">内核读取中…</span></span>
       <div class="speed">
@@ -874,28 +983,91 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
         <button class="btn sm" id="app-update-notice-close">知道了</button>
       </div>
       <section class="page active" id="page-overview">
-        <div class="card" id="overview-proxy">
-          <div class="row" style="gap:10px">
-            <h3 style="margin:0">当前代理</h3>
-            <span class="badge" id="ov-delay">未测速</span>
-            <div style="flex:1"></div>
-            <button class="btn sm" id="ov-test">测速</button>
-            <button class="btn sm" id="ov-open-nodes">节点列表</button>
+        <div class="page-head hero">
+          <div class="head-text">
+            <h2>仪表盘</h2>
+            <p>查看内核运行情况并快速调整常用开关</p>
           </div>
-          <div id="ov-node" style="font-size:15.5px;font-weight:650;margin:9px 0 3px">-</div>
-          <div class="muted" id="ov-node-sub" style="font-size:12.5px">未运行内核时流量走内置引擎</div>
-          <div class="row" style="margin-top:14px;gap:10px">
-            <div class="seg" id="ov-mode">
-              <button data-mode="rule">规则</button>
-              <button data-mode="global">全局</button>
-              <button data-mode="direct">直连</button>
-            </div>
-            <span class="muted" id="ov-mode-hint" style="font-size:12.5px"></span>
+          <div class="head-acts">
+            <span class="badge" id="ov-state">未运行</span>
+            <span class="badge" id="ov-sub">未选择订阅</span>
+            <button class="btn" id="ov-start">启动</button>
+            <button class="btn" id="ov-restart">重启</button>
           </div>
         </div>
-        <div class="grid" id="overview-metrics"></div>
-        <div id="overview-runtime"></div>
-        <div class="card" style="margin-top:14px">
+        <div class="dash-grid">
+          <div class="dash-slot" id="overview-metrics"></div>
+          <div class="card dash-card">
+            <div class="dash-k">
+              <div class="t">系统代理</div>
+              <div class="d" id="dash-sysproxy-note">切换操作系统级代理开关</div>
+            </div>
+            <div class="dash-right">
+              <label class="switch" title="切换 Windows 系统代理">
+                <input type="checkbox" id="dash-sysproxy">
+                <span class="track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="card dash-card">
+            <div class="dash-k">
+              <div class="t">TUN 模式</div>
+              <div class="d">接管设备的所有网络流量</div>
+            </div>
+            <div class="dash-right">
+              <label class="switch" title="TUN 模式：接管整机流量（需要管理员权限）">
+                <input type="checkbox" id="dash-tun">
+                <span class="track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="card dash-card">
+            <div class="dash-k">
+              <div class="t">代理模式</div>
+              <div class="d">规则分流 / 全局代理 / 直连</div>
+            </div>
+            <div class="dash-right">
+              <span class="badge" id="ov-mode-hint"></span>
+              <div class="seg" id="ov-mode">
+                <button data-mode="rule">规则</button>
+                <button data-mode="global">全局</button>
+                <button data-mode="direct">直连</button>
+              </div>
+            </div>
+          </div>
+          <div class="card dash-card">
+            <div class="dash-k">
+              <div class="t">IP 地址</div>
+              <div class="d" id="ov-ip-isp">点刷新检测当前出口（没开节点时是本机地址）</div>
+            </div>
+            <div class="dash-right">
+              <div class="dash-col">
+                <div class="dash-v" id="ov-ip">-</div>
+              </div>
+              <div class="dash-acts">
+                <button class="icon-btn" id="ov-ip-eye" title="显示或隐藏 IP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.6 12 5.6 21.5 12 21.5 12 18 18.4 12 18.4 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3.1"/></svg></button>
+                <button class="icon-btn" id="ov-ip-refresh" title="重新检测出口 IP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.2v4.4h-4.4"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="card dash-card dash-wide">
+            <div class="dash-k">
+              <div class="t">当前代理</div>
+              <div class="d" id="ov-node-sub">未运行内核时流量走内置引擎</div>
+            </div>
+            <div class="dash-right">
+              <div class="dash-col">
+                <div class="dash-v" id="ov-node">-</div>
+                <span class="badge" id="ov-delay">未测速</span>
+              </div>
+              <div class="dash-acts">
+                <button class="btn sm" id="ov-test">测速</button>
+                <button class="btn sm" id="ov-test-all">全部测速并选最快</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
           <h3>实时流量</h3>
           <div class="chart-wrap"><canvas id="traffic-chart" height="120"></canvas></div>
           <div class="row" style="margin-top:10px">
@@ -906,22 +1078,30 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
           <h3>本地入口</h3>
           <div id="overview-endpoints"></div>
         </div>
+        <div id="overview-runtime"></div>
       </section>
 
       <section class="page" id="page-nodes">
-        <div class="page-head">
-          <h2>节点与代理组</h2>
-          <span class="hint" id="nodes-source"></span>
-          <span class="badge" id="nodes-count"></span>
+        <div class="page-head hero">
+          <div class="head-text">
+            <h2>代理组</h2>
+            <p id="nodes-source">选择订阅后即可查看该订阅的全部节点</p>
+          </div>
+          <div class="head-acts">
+            <span class="badge" id="nodes-count"></span>
+          </div>
         </div>
         <div class="toolbar">
+          <select id="nodes-sub" style="max-width:220px" title="只看某个订阅带来的节点"></select>
+          <div class="spacer" style="flex:1"></div>
+          <span class="hint" id="core-mode-hint"></span>
           <div class="seg" id="core-mode" title="分流模式（规则 / 全局 / 直连，内核需支持）">
             <button data-mode="rule">规则</button>
             <button data-mode="global">全局</button>
             <button data-mode="direct">直连</button>
           </div>
-          <span class="hint" id="core-mode-hint"></span>
-          <div class="spacer" style="flex:1"></div>
+        </div>
+        <div class="toolbar">
           <input id="nodes-search" style="max-width:190px" placeholder="搜索节点">
           <select id="nodes-sort" style="max-width:138px" title="节点列表顺序">
             <option value="default">默认顺序</option>
@@ -929,9 +1109,20 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
             <option value="delay-desc">延迟高→低</option>
             <option value="name">按名称</option>
           </select>
+          <button class="btn sm" id="nodes-sort-speed" title="按延迟从低到高排列，再点一次回到默认顺序">按速度排序</button>
           <button class="btn sm" id="nodes-pick">自动选优</button>
           <button class="btn sm" id="nodes-test-all">全部测速</button>
           <button class="btn sm" id="nodes-refresh">刷新</button>
+        </div>
+          <div class="chips" id="nodes-groups"></div>
+        <div class="card" id="nodes-test-panel" hidden style="padding:14px 18px">
+          <div class="row" style="gap:12px;align-items:center">
+            <span class="muted" id="nodes-test-msg" style="font-size:12.5px">测速中…</span>
+            <div class="spacer" style="flex:1"></div>
+            <span class="badge" id="nodes-test-count">0 / 0</span>
+            <button class="btn sm danger" id="nodes-test-stop">停止</button>
+          </div>
+          <div class="pbar" id="nodes-test-bar"><span></span></div>
         </div>
         <div id="nodes-body"></div>
         <div class="card">
@@ -970,38 +1161,45 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
       </section>
 
       <section class="page" id="page-subs">
-        <div class="page-head">
-          <h2>订阅导入</h2>
-          <span class="hint">支持订阅链接、base64 订阅、分享链接、Clash YAML、sing-box JSON</span>
+        <div class="page-head hero">
+          <div class="head-text">
+            <h2>配置管理</h2>
+            <p>导入、更新并维护你的订阅配置</p>
+          </div>
+          <div class="head-acts">
+            <span class="badge" id="subs-count"></span>
+            <span class="badge">支持拖动排序</span>
+          </div>
         </div>
-        <div class="card" style="padding:0">
-          <table>
-            <thead><tr>
-              <th>名称</th><th>流量</th><th>有效期</th><th class="num">节点</th><th>更新时间</th><th>自动刷新</th><th></th>
-            </tr></thead>
-            <tbody id="subs-body"><tr><td colspan="7"><div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-3.6-3.6"/><path d="M8.4 11h5.2"/></svg><div>还没有保存的订阅</div></div></td></tr></tbody>
-          </table>
-        </div>
-        <div class="card">
-          <h3>添加订阅</h3>
-          <div class="row tight">
+        <div class="card sub-tools">
+          <div class="row" style="gap:12px;align-items:center">
+            <span class="muted" style="font-size:13px">支持拖拽导入 YAML 配置，或使用右侧操作快速管理订阅。</span>
+            <div class="spacer" style="flex:1"></div>
+            <button class="icon-btn lg" id="subs-update-all" title="更新全部订阅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.2v4.4h-4.4"/></svg></button>
+            <button class="icon-btn lg" id="sub-clip" title="读取系统剪贴板里的订阅链接或节点列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.2A3.6 3.6 0 0 0 7 18.5z"/></svg></button>
+            <button class="icon-btn lg" id="sub-file-pick" title="读取本机的节点列表 / Clash 配置 / sing-box 配置；也可以直接把文件拖到上面的输入框"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16.5V4.5"/><path d="M7.5 9L12 4.5 16.5 9"/><path d="M4.5 19.5h15"/></svg></button>
+            <button class="icon-btn lg" id="sub-add-open" title="添加订阅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+          <div class="row tight" id="sub-add-row" hidden>
             <input id="sub-name" placeholder="名称（可留空）" style="max-width:190px">
             <input id="sub-url" class="grow" placeholder="订阅链接 https://…">
             <button class="btn primary" id="sub-add">添加并导入</button>
-            <button class="btn" id="subs-update-all">全部更新</button>
           </div>
-          <p class="muted" style="font-size:12.5px;margin:9px 0 0">
+          <p class="muted" style="font-size:12.5px;margin:10px 0 0">
             订阅会保存在 <code>subscriptions.json</code>，下次启动仍然可用；更新会重新解析并热重载内核。<br>列表顺序可以按住行首的 ⠿ 拖动调整；顺序只保存在本机浏览器（后端无重排接口）。
           </p>
         </div>
+        <div class="sub-sec">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
+          <span>我的配置</span>
+        </div>
+        <div class="sub-grid" id="subs-body"></div>
         <div class="card">
           <h3>一次性导入（粘贴内容或链接）</h3>
           <textarea id="sub-input" rows="7" spellcheck="false" placeholder="https://example.com/api/v1/client/subscribe?token=...
 或者直接粘贴 ss:// vmess:// vless:// trojan:// hysteria2:// 列表 / base64 订阅 / Clash 配置"></textarea>
           <div class="row" style="margin-top:10px">
             <button class="btn primary" id="sub-import">导入并应用</button>
-            <button class="btn" id="sub-clip" title="读取系统剪贴板里的订阅链接或节点列表">从剪贴板导入</button>
-            <button class="btn" id="sub-file-pick" title="读取本机的节点列表 / Clash 配置 / sing-box 配置；也可以直接把文件拖到上面的输入框">从文件导入</button>
             <button class="btn" id="sub-preview">仅解析预览</button>
             <span class="muted" id="sub-msg" style="font-size:12.5px"></span>
           </div>
@@ -1972,6 +2170,10 @@ const state = {
   // P1-1: node-table groups the user folded away. Cosmetics, so they live in
   // localStorage beside the rest and survive a reload.
   nodeCollapsed: new Set(),
+  // 代理组页的两个选择器：看哪个订阅带来的节点、看哪个分组里的节点。
+  nodeSub: null,
+  nodeGroup: "",
+  subs: [],
 };
 
 /* Persisted UI preferences: node-list order, log level + search box, and the
@@ -1984,7 +2186,7 @@ const NODE_SORTS = ["default", "delay", "delay-desc", "name"];
 const CONN_SORTS = ["target", "source", "rule", "chain", "up", "down", "status"];
 const CONN_GROUPS = ["", "process", "rule", "node"];
 const LOG_LEVELS = ["all", "info", "warn", "error"];
-const uiPrefs = { nodesSort: "default", logLevel: "all", logFilter: "", logRaw: false, connSortKey: "", connSortDir: 1, connGroupBy: "", connCollapsed: [], nodeCollapsed: [] };
+const uiPrefs = { nodesSort: "default", logLevel: "all", logFilter: "", logRaw: false, connSortKey: "", connSortDir: 1, connGroupBy: "", connCollapsed: [], nodeCollapsed: [], nodeGroup: "" };
 
 function loadUiPrefs() {
   let raw = null;
@@ -2005,6 +2207,7 @@ function loadUiPrefs() {
       .filter((k) => typeof k === "string" && k.length <= 120)
       .slice(0, 60);
   }
+  if (typeof raw.nodeGroup === "string") uiPrefs.nodeGroup = raw.nodeGroup.slice(0, 120);
   if (Array.isArray(raw.nodeCollapsed)) {
     // Same rule as the connection table: a stale key is harmless, it simply
     // never matches a live group.
@@ -2026,6 +2229,7 @@ function applyUiPrefs() {
   loadUiPrefs();
   state.nodeSort = uiPrefs.nodesSort;
   $("#nodes-sort").value = uiPrefs.nodesSort;
+  syncNodeSortButton();
   state.logLevel = uiPrefs.logLevel;
   $$("#log-level button").forEach((b) => b.classList.toggle("active", b.dataset.level === uiPrefs.logLevel));
   state.logFilter = uiPrefs.logFilter.trim().toLowerCase();
@@ -2038,12 +2242,14 @@ function applyUiPrefs() {
   $("#conn-group").value = uiPrefs.connGroupBy;
   state.connCollapsed = new Set(uiPrefs.connCollapsed);
   state.nodeCollapsed = new Set(uiPrefs.nodeCollapsed);
+  state.nodeSub = loadCurrentSub();
+  state.nodeGroup = uiPrefs.nodeGroup;
 }
 applyUiPrefs();
 
 const PAGE_TITLES = {
   panel: "小白",
-  overview: "概览", nodes: "节点", subs: "订阅", conns: "连接",
+  overview: "仪表盘", nodes: "代理组", subs: "配置管理", conns: "连接",
   rules: "规则", cores: "内核", logs: "日志", settings: "设置", profile: "档案", diag: "诊断", ai: "AI 直达",
 };
 
@@ -2228,6 +2434,11 @@ function setHTML(el, html, key) {
 }
 function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
 function runningCore() { return state.cores.find((c) => c.running); }
+/* The dashboard cards read the newest traffic sample, the same one the topbar
+   speed pill shows, so the two can never disagree. */
+function lastTrafficSample() {
+  return state.traffic[state.traffic.length - 1] || { up: 0, down: 0 };
+}
 
 function updateCorePill() {
   const text = $("#core-pill-text");
@@ -2726,6 +2937,12 @@ async function refreshStatus() {
     // program switched on is shown as its own state, not as ours: unchecking
     // a box we never checked must not switch somebody else's proxy off.
     $("#sysproxy").checked = !!(st.system_proxy && st.system_proxy_owned);
+    syncDashSwitches();
+    const proxyNote = $("#dash-sysproxy-note");
+    if (proxyNote) {
+      setText(proxyNote, !st.system_proxy ? "切换操作系统级代理开关"
+        : st.system_proxy_owned ? "已开启（本客户端）" : "已开启（别的程序）");
+    }
     $("#settings-path").textContent = st.config_path;
     renderOverview();
   } catch (e) {
@@ -2763,30 +2980,43 @@ function renderOverview() {
   const activeSOCKS = st.active_socks || st.socks5_addr || "-";
   // The fourth element is an optional element id: the uptime is rewritten by
   // the one-second ticker without re-rendering the whole card.
+  const sample = lastTrafficSample();
   const metrics = [
-    ["运行时长", fmtUptime(uptimeSeconds() || st.uptime_sec), "启动于 " + (st.started_at || "-").slice(11, 19), "ov-uptime"],
-    ["数据通道", engineName, "入口 " + activeHTTP],
-    ["出口", st.outbound === "direct" ? "直连" : st.outbound, core],
-    ["活动连接", st.active_conns + " 条", "累计 " + st.total_conns + " 条"],
-    ["规则", st.rule_count + " 条", st.allow_lan ? "允许局域网" : "仅本机"],
-    ["入站鉴权", st.auth_enabled ? "已启用" : "未启用", st.auth_enabled ? "用户名 + 密码" : "本机免认证"],
-    ["系统代理", st.system_proxy ? (st.system_proxy_owned ? "已开启（本客户端）" : "已开启（别的程序）") : "已关闭", st.system_proxy_server || "-"],
+    ["活跃连接", st.active_conns + " 条", "累计 " + st.total_conns + " 条", "ov-conns"],
+    ["下载速度", fmtSpeed(sample.down), "总计 " + fmtBytes(state.totalDown), "ov-down"],
+    ["上传速度", fmtSpeed(sample.up), "总计 " + fmtBytes(state.totalUp), "ov-up"],
+    ["总流量", fmtBytes(state.totalDown + state.totalUp), "当前节点 " + core, "ov-total"],
   ];
   setHTML($("#overview-metrics"), metrics.map(([k, v, s, id], i) => (
-    '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(k) + '</div><div class="v"' +
-    (id ? ' id="' + id + '"' : "") + ">" + esc(v) +
-    '</div><div class="s">' + esc(s) + "</div></div>"
+    '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(k) + '</div><div class="v" id="' +
+    id + '">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"
   )).join(""), "metrics");
 
+  const running = runningCore();
+  const stateBadge = $("#ov-state");
+  if (stateBadge) {
+    stateBadge.className = "badge" + (running ? " ok" : "");
+    setText(stateBadge, running ? "运行中" : "未运行");
+  }
+  setText($("#ov-sub"), state.nodeSub || "未选择订阅");
+  setText($("#ov-start"), running ? "停止" : "启动");
+
   const endpoints = [
-    ["SOCKS5", activeSOCKS],
-    ["HTTP", activeHTTP],
-    ["控制台", location.host],
-    ["配置文件", st.config_path],
+    ["运行时长", "", "ov-uptime"],
+    ["数据通道", engineName, ""],
+    ["出口", st.outbound === "direct" ? "直连" : st.outbound, ""],
+    ["规则", st.rule_count + " 条", ""],
+    ["入站鉴权", st.auth_enabled ? "已启用" : "未启用", ""],
+    ["SOCKS5", activeSOCKS, ""],
+    ["HTTP", activeHTTP, ""],
+    ["控制台", location.host, ""],
+    ["配置文件", st.config_path, ""],
   ];
-  setHTML($("#overview-endpoints"), endpoints.map(([k, v]) => (
-    '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v mono copyable" title="点击复制" data-copy="' + esc(v) + '">' + esc(v) + "</span></div>"
-  )).join(""), "endpoints");
+  if (setHTML($("#overview-endpoints"), endpoints.map(([k, v, id]) => (
+    id
+      ? '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v" id="' + id + '"></span></div>'
+      : '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v mono copyable" title="点击复制" data-copy="' + esc(v) + '">' + esc(v) + "</span></div>"
+  )).join(""), "endpoints")) tickUptime();
   renderRuntimeMetrics(st);
   renderOverviewProxy();
 }
@@ -2877,6 +3107,24 @@ function renderOverviewProxy() {
   if (badge) { badge.className = "badge"; setText(badge, "未测速"); }
 }
 
+/* 仪表盘上的开关是标题栏那两个开关的第二个视图：这里只转发，不另存一份状态。 */
+const dashSwitchSync = [];
+function mirrorDashSwitch(srcId, dstId, stateId) {
+  const src = $(srcId), dst = $(dstId);
+  if (!src || !dst) return;
+  const sync = () => {
+    dst.checked = src.checked;
+    const label = stateId ? $(stateId) : null;
+    if (label) setText(label, src.checked ? "已开启" : "已关闭");
+  };
+  dst.onchange = () => { src.checked = dst.checked; src.dispatchEvent(new Event("change")); };
+  dashSwitchSync.push(sync);
+  sync();
+}
+mirrorDashSwitch("#sysproxy", "#dash-sysproxy", "#dash-sysproxy-state");
+mirrorDashSwitch("#tunmode", "#dash-tun", "#dash-tun-state");
+function syncDashSwitches() { for (const fn of dashSwitchSync) fn(); }
+
 $("#ov-test").onclick = async () => {
   const running = runningCore();
   if (!running) { toast("先在「内核」页启动一个内核再测速", "err"); return; }
@@ -2903,7 +3151,117 @@ $("#ov-test").onclick = async () => {
   }
 };
 
-$("#ov-open-nodes").onclick = () => navigate("nodes");
+
+// The overview card gets the same whole-group sweep as 节点 → 自动选优, so the
+// one-click answer to "which node is fastest right now" is available from the
+// page the user is already looking at.
+$("#ov-test-all").onclick = async () => {
+  const running = runningCore();
+  if (!running) { toast("先在「内核」页启动一个内核再测速", "err"); return; }
+  const info = currentProxySummary();
+  if (!info || !info.group) { toast("还没有可测速的代理组", "err"); return; }
+  const btn = $("#ov-test-all");
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>';
+  try {
+    await pickGroup(running.id, info.group);
+    renderOverviewProxy();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+};
+
+/* 标题栏的启动/重启复用内核页那两条路由：停止返回即进程已回收，启动不会和它抢。 */
+async function ovCoreToggle(btn) {
+  const original = btn.textContent;
+  btn.disabled = true;
+  try {
+    await refreshCores();
+    const running = runningCore();
+    if (running) {
+      await api("/api/cores/stop", { method: "POST", body: JSON.stringify({ id: running.id }) });
+      toast("内核 " + running.id + " 已停止", "ok");
+    } else {
+      const next = (state.cores || []).find((c) => c.installed && c.emitter_ready);
+      if (!next) { toast("还没有可启动的内核，到「内核」页下载一个", "err"); return; }
+      await api("/api/cores/start", { method: "POST", body: JSON.stringify({ id: next.id }) });
+      toast("内核 " + next.id + " 已启动", "ok");
+    }
+  } catch (e) {
+    toast("操作失败：" + e.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    refreshCores().then(refreshStatus);
+  }
+}
+
+/* 出口 IP 卡片：走诊断页那条 /api/diag/ip，via=proxy 表示经由当前内核拨号，
+   所以显示的就是挂上节点之后的地址。没有内核时它会退回直连地址。 */
+let ovIPReport = null;
+let ovIPMasked = false;
+
+function renderOvIP() {
+  const el = $("#ov-ip");
+  if (!el) return;
+  const rep = ovIPReport;
+  const value = (rep && rep.ip) || "-";
+  el.classList.toggle("masked", ovIPMasked);
+  setText(el, ovIPMasked ? value.replace(/[0-9a-f]/gi, "•") : value);
+  el.title = ovIPMasked ? "点击显示" : value;
+  // Country + region (city) is the first question this card answers; the
+  // carrier follows it.
+  const where = rep ? [rep.country_name || rep.country, rep.city].filter(Boolean).join(" · ") : "";
+  const who = rep ? [where, rep.isp || rep.org].filter(Boolean).join(" · ") : "";
+  setText($("#ov-ip-isp"), who || "点刷新检测当前出口（没开节点时是本机地址）");
+}
+
+async function loadOvIP(refresh) {
+  const btn = $("#ov-ip-refresh");
+  if (btn) btn.disabled = true;
+  if (!ovIPReport) setText($("#ov-ip-isp"), "检测中…");
+  try {
+    ovIPReport = await api("/api/diag/ip?via=proxy&refresh=" + (refresh ? "1" : "0"));
+    renderOvIP();
+  } catch (e) {
+    ovIPReport = null;
+    renderOvIP();
+    setText($("#ov-ip-isp"), /外部探测/.test(e.message)
+      ? "检测失败：外部探测在设置里关着（到「设置」页打开）"
+      : "检测失败：" + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+$("#ov-ip-refresh").onclick = () => loadOvIP(true);
+$("#ov-ip-eye").onclick = () => { ovIPMasked = !ovIPMasked; renderOvIP(); };
+$("#ov-ip").onclick = () => { ovIPMasked = !ovIPMasked; renderOvIP(); };
+
+
+$("#ov-start").onclick = (e) => ovCoreToggle(e.currentTarget);
+
+$("#ov-restart").onclick = async (e) => {
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true;
+  try {
+    await refreshCores();
+    const core = runningCore();
+    if (!core) { toast("当前没有运行中的内核", "err"); return; }
+    await api("/api/cores/stop", { method: "POST", body: JSON.stringify({ id: core.id }) });
+    await api("/api/cores/start", { method: "POST", body: JSON.stringify({ id: core.id }) });
+    toast("内核 " + core.id + " 已重启", "ok");
+  } catch (err) {
+    toast("重启内核失败：" + err.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    refreshCores().then(refreshStatus);
+  }
+};
 
 /* ---------------- traffic chart ---------------- */
 /* Redraws are coalesced into one animation frame and the canvas backing store
@@ -3011,6 +3369,11 @@ async function refreshTraffic() {
       $("#speed-down").textContent = fmtSpeed(sample.down || 0);
       $("#traffic-total-up").textContent = fmtBytes(state.totalUp);
       $("#traffic-total-down").textContent = fmtBytes(state.totalDown);
+      // getElementById: the three traffic cards are built by renderOverview at
+      // runtime, so the console's static id check cannot see them.
+      setText(document.getElementById("ov-down"), fmtSpeed(sample.down || 0));
+      setText(document.getElementById("ov-up"), fmtSpeed(sample.up || 0));
+      setText(document.getElementById("ov-total"), fmtBytes(state.totalUp + state.totalDown));
       drawChart();
       if ($("#page-conns").classList.contains("active")) drawChart("#conns-chart");
     }
@@ -3018,9 +3381,11 @@ async function refreshTraffic() {
 }
 
 /* ---------------- proxies ---------------- */
-function setNodesCount(total) {
+function setNodesCount(total, shown) {
   const el = $("#nodes-count");
-  if (el) el.textContent = total == null ? "" : total + " 个节点";
+  if (!el) return;
+  if (total == null) { el.textContent = ""; return; }
+  el.textContent = (shown != null && shown !== total) ? shown + " / " + total + " 个节点" : total + " 个节点";
 }
 
 /* ---------------- virtual node list ----------------
@@ -3037,7 +3402,7 @@ function setNodesCount(total) {
    stays right whatever the theme's font metrics turn out to be. */
 const nodeList = {
   all: [], items: [], selected: [], rows: null, scroll: null, coreId: "",
-  first: -1, last: -1, rowH: 45, measured: false, frame: 0,
+  first: -1, last: -1, rowH: 104, cardH: 92, cols: 0, measured: false, frame: 0,
   query: "", version: 0, sig: "", dataSig: "", itemSig: "",
 };
 const nodeDelays = {};
@@ -3125,6 +3490,125 @@ function delayCellHTML(name, delay) {
    one row, so it can only live in one block - and anything no group points at
    lands in the trailing 未分组 block. */
 const NODE_UNGROUPED = "未分组";
+
+/* ---------------- 代理组页：订阅 / 分组两个选择器 ----------------
+
+   节点表看的是「哪个订阅带来的节点」和「哪个代理组里的节点」。订阅归属由后端
+   记录（/api/subscriptions 的 node_names），没有归属的是手动添加的节点。两个
+   选择器的值都只留在本机。 */
+const NODE_SUB_MANUAL = "@manual";
+const SUBS_CURRENT_KEY = "syan-clash-current-sub";
+
+// 节点名 -> 提供它的订阅名集合。一个节点可能同时来自多个订阅（同一机场的两条链接就是同一批
+// 节点），所以归属必须是集合：谁提供了它，就在谁的筛选里出现。
+let nodeSubOwners = new Map();
+
+// 当前订阅：null 表示还没选过，第一次拿到订阅列表时落到第一个上。
+function loadCurrentSub() {
+  try {
+    const v = localStorage.getItem(SUBS_CURRENT_KEY);
+    return v === null ? null : v;
+  } catch (e) { return null; }
+}
+
+function saveCurrentSub(name) {
+  try { localStorage.setItem(SUBS_CURRENT_KEY, name || ""); } catch (e) {}
+}
+
+async function loadSubIndex() {
+  try {
+    const subs = await api("/api/subscriptions") || [];
+    state.subs = subs;
+    const owners = new Map();
+    for (const s of subs) {
+      for (const n of (s.node_names || [])) {
+        const key = String(n);
+        let set = owners.get(key);
+        if (!set) { set = new Set(); owners.set(key, set); }
+        set.add(s.name);
+      }
+    }
+    nodeSubOwners = owners;
+    if (state.nodeSub === null && subs.length) {
+      // 第一次进来时落在「真的有节点」的那个订阅上：刚加进来还没刷新过的订阅
+      // 归属还是空的，选中它会让代理组页看起来一个节点都没有。
+      const owned = subs.find((s) => (s.node_names || []).length);
+      state.nodeSub = (owned || subs[0]).name;
+      saveCurrentSub(state.nodeSub);
+    }
+    return subs;
+  } catch (e) {
+    return state.subs || [];
+  }
+}
+
+function nodeInScope(name) {
+  const owners = nodeSubOwners.get(name);
+  if (state.nodeSub === NODE_SUB_MANUAL) {
+    if (owners && owners.size) return false;
+  } else if (state.nodeSub) {
+    if (!owners || !owners.has(state.nodeSub)) return false;
+  }
+  if (state.nodeGroup && nodeGroupOf(name) !== state.nodeGroup) return false;
+  return true;
+}
+
+function filterNodesByScope(list) {
+  if (!state.nodeSub && !state.nodeGroup) return list;
+  return list.filter((n) => nodeInScope(String(n.name == null ? "" : n.name)));
+}
+
+/* 选项来自当前内核的代理组和后端的订阅列表；值本身就是节点表的过滤条件。 */
+/* 代理组用一排胶囊代替下拉：一眼能看到有几个组、当前落在哪个组上。 */
+function renderGroupChips(groupNames) {
+  const box = $("#nodes-groups");
+  if (!box) return;
+  const allGroups = "全部代理组";
+  const items = ['<button type="button" class="chip' + (state.nodeGroup ? "" : " active") + '" data-group-chip="">' + allGroups + "</button>"];
+  for (const name of groupNames) {
+    items.push('<button type="button" class="chip' + (state.nodeGroup === name ? " active" : "") +
+      '" data-group-chip="' + esc(name) + '" title="' + esc(name) + '">' + esc(name) + "</button>");
+  }
+  if (!setHTML(box, items.join(""), "chips:" + (state.nodeGroup || ""))) return;
+  $$("#nodes-groups .chip").forEach((b) => {
+    b.onclick = () => {
+      state.nodeGroup = b.dataset.groupChip || "";
+      uiPrefs.nodeGroup = state.nodeGroup;
+      saveUiPrefs();
+      renderGroupChips(groupNames);
+      applyNodeFilter();
+    };
+  });
+}
+
+
+function syncNodeScopeSelects(groups) {
+  const subSel = $("#nodes-sub");
+  if (!subSel) return;
+  const subs = state.subs || [];
+  if (state.nodeSub && state.nodeSub !== NODE_SUB_MANUAL && !subs.some((s) => s.name === state.nodeSub)) {
+    state.nodeSub = "";
+    saveCurrentSub("");
+  }
+  const subOpts = ['<option value="">全部订阅</option>'];
+  for (const s of subs) subOpts.push('<option value="' + esc(s.name) + '">' + esc(s.name) + "</option>");
+  // 手动节点：库里存在、却没有任何订阅认领的那些（手填的节点）。
+  let claimed = 0;
+  for (const n of (nodeList.all || [])) if (nodeSubOwners.has(String(n.name == null ? "" : n.name))) claimed++;
+  if (claimed < (nodeList.all || []).length) subOpts.push('<option value="' + NODE_SUB_MANUAL + '">手动节点</option>');
+  setHTML(subSel, subOpts.join(""), "subopts");
+  subSel.value = state.nodeSub || "";
+
+  const groupNames = [];
+  for (const g of (groups || [])) groupNames.push(String(g.name == null ? "" : g.name));
+  if (state.nodeGroup && groupNames.indexOf(state.nodeGroup) < 0) {
+    state.nodeGroup = "";
+    uiPrefs.nodeGroup = "";
+    saveUiPrefs();
+  }
+  renderGroupChips(groupNames);
+}
+
 let nodeGroups = [];
 let nodeGroupIndex = new Map();
 let nodeSwitchRoutes = new Map();
@@ -3222,15 +3706,25 @@ function nodeSig(list) {
 const NO_GROUP_TIP = "当前出口没有可手动切换到此节点的代理组路径";
 const DIRECT_MODE_TIP = "直连模式不使用代理节点，请先切换分流模式";
 
-function nodeRowHTML(n) {
-  // A group header is a row of the same height as a node row, so the virtual
-  // list's arithmetic does not care that headers are interleaved with nodes.
-  if (n && n.header) {
-    return '<tr class="node-grp' + (n.folded ? " folded" : "") + '" data-group-row="' + esc(n.group) + '">' +
-      '<td colspan="4"><span class="node-grp-caret"></span>' + esc(n.group) +
-      '<span class="node-grp-count">· ' + n.count + ' 个节点' +
-      (n.folded ? '（已折叠，点击展开）' : '（点击折叠）') + '</span></td></tr>';
-  }
+function nodeHeaderHTML(n) {
+  // A group band is a display row of its own; the renderer gives it a fixed
+  // height so the virtual list's arithmetic does not care that the bands are
+  // interleaved with the card rows.
+  return '<div class="ng-hdr' + (n.folded ? " folded" : "") + '" data-group-row="' + esc(n.group) +
+    '" style="height:' + NODE_HDR_H + 'px"><span class="node-grp-caret"></span>' + esc(n.group) +
+    '<span class="node-grp-count">· ' + n.count + ' 个节点' +
+    (n.folded ? '（已折叠，点击展开）' : '（点击折叠）') + "</span></div>";
+}
+
+/* One node, one card: name / type / latency on top, the four actions along the
+   bottom edge. Same data-node-row / data-switch / data-test / data-chain /
+   data-remove hooks the table used, so the page-wide click handler is unchanged. */
+const NODE_REFRESH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.2v4.4h-4.4"/></svg>';
+
+/* One node, one card. The card body itself is the switch - 切换 lives on the
+   card instead of on a button, so the common action is one click anywhere on
+   it. 前置/删除 stay as buttons and the small ⟳ re-tests just this node. */
+function nodeCardHTML(n) {
   const name = String(n.name == null ? "" : n.name);
   const marked = nodeList.selected.indexOf(name) >= 0;
   const delay = Object.prototype.hasOwnProperty.call(nodeDelays, name) ? nodeDelays[name] : n.delay;
@@ -3238,21 +3732,22 @@ function nodeRowHTML(n) {
   // previous mode: nothing is dialled through a group, so nothing is switchable.
   const route = coreModeCache === "direct" ? null : nodeSwitchRoutes.get(name);
   const tip = coreModeCache === "direct" ? DIRECT_MODE_TIP : NO_GROUP_TIP;
-  return '<tr' + (marked ? ' class="row-sel"' : "") + ' data-node-row="' + esc(name) + '">' +
-    '<td title="' + esc(name) + '"><b>' + esc(name) + '</b></td>' +
-    '<td class="muted" title="' + esc(n.type) + '">' + esc(n.type) + '</td>' +
-    '<td id="delay-' + esc(name) + '">' + delayCellHTML(name, delay) + '</td>' +
-    '<td class="num"><button class="btn sm" data-switch="' + esc(name) + '"' + (route ? (nodeSwitchBusy ? ' disabled' : '') + ' title="' + esc(route.map((s) => s.group).concat(name).join(" → ")) + '"' : ' disabled title="' + tip + '"') + '>切换</button> ' +
-    '<button class="btn sm" data-test="' + esc(name) + '">测速</button> ' +
-    '<button class="btn sm" data-chain="' + esc(name) + '">前置</button> ' +
-    '<button class="btn sm danger" data-remove="' + esc(name) + '">删除</button></td></tr>';
+  const how = route ? "点击卡片切换到这个节点" : tip;
+  return '<div class="node-card' + (marked ? " row-sel" : "") + '" data-node-row="' + esc(name) +
+    '" data-switch="' + esc(name) + '" title="' + esc(how) + '">' +
+    '<div class="nc-head"><b class="nc-name">' + esc(name) + '</b><span class="nc-mark"></span>' +
+    '<button class="icon-btn nc-refresh" data-test="' + esc(name) + '" title="重新测速这个节点">' + NODE_REFRESH_ICON + '</button></div>' +
+    '<div class="nc-meta"><span class="nc-type">' + esc(n.type) + '</span>' +
+    '<span class="nc-delay" id="delay-' + esc(name) + '">' + delayCellHTML(name, delay) + "</span></div>" +
+    '<div class="nc-acts">' +
+    '<button class="btn sm" data-chain="' + esc(name) + '">前置</button>' +
+    '<button class="btn sm danger" data-remove="' + esc(name) + '">删除</button>' +
+    "</div></div>";
 }
 
 function nodeShellHTML() {
-  return '<div class="card" style="padding:0"><div class="vscroll" id="nodes-scroll"><table>' +
-'<colgroup><col><col style="width:92px"><col style="width:116px"><col style="width:272px"></colgroup>' +
-    '<thead><tr><th>节点</th><th>类型</th><th>延迟</th><th></th></tr></thead>' +
-    '<tbody id="nodes-rows"></tbody></table></div></div>';
+  return '<div class="card" style="padding:0"><div class="vscroll" id="nodes-scroll">' +
+    '<div id="nodes-rows" class="node-grid"></div></div></div>';
 }
 
 // ensureNodeShell puts the table on the page if it is not there yet. The node
@@ -3275,62 +3770,132 @@ function ensureNodeShell() {
   return true;
 }
 
+/* ---------------- 代理组卡片网格的虚拟化 ----------------
+
+   和之前的表格一样，DOM 里只保留视口内的卡片；上面和下面各放一个纯高度的
+   占位块撑住滚动条。差别是「一行」现在可以放 N 张卡（N 由容器宽度算出），
+   分组标题自己占一整行。所以每一行的行高由这里显式写死，滚动位置才能用
+   前缀和 + 二分精确还原，而不是靠「行高都一样」这一个隐含前提。 */
+const NODE_CARD_GAP = 12;
+const NODE_CARD_MIN = 250;
+const NODE_HDR_H = 46;
+const NODE_INSET = 12; // #nodes-scroll 的内边距
+
+function nodeColumns() {
+  const w = (nodeList.scroll && nodeList.scroll.clientWidth) || 0;
+  const usable = Math.max(0, w - NODE_INSET * 2);
+  const cols = Math.floor((usable + NODE_CARD_GAP) / (NODE_CARD_MIN + NODE_CARD_GAP));
+  return Math.max(1, Math.min(6, cols || 1));
+}
+
+/* 把扁平的「分组标题 + 节点」序列切成显示行：标题自己一行，节点按 cols 个一行。 */
+function buildNodeRows(cols) {
+  const items = nodeList.items || [];
+  const rows = [];
+  let i = 0;
+  while (i < items.length) {
+    const it = items[i];
+    if (it && it.header) { rows.push({ kind: "hdr", at: i, h: NODE_HDR_H }); i++; continue; }
+    const at = i;
+    let n = 0;
+    while (i < items.length && n < cols && !(items[i] && items[i].header)) { i++; n++; }
+    rows.push({ kind: "row", at: at, n: n, h: nodeList.rowH });
+  }
+  return rows;
+}
+
 function renderNodeWindow(force) {
   const scroller = nodeList.scroll, body = nodeList.rows;
   if (!scroller || !body) return;
-  const total = nodeList.items.length;
-  const h = nodeList.rowH;
+  const cols = nodeColumns();
+  if (cols !== nodeList.cols) { nodeList.cols = cols; nodeList.sig = ""; }
+  const rows = buildNodeRows(cols);
+  const tops = new Array(rows.length + 1);
+  tops[0] = 0;
+  for (let r = 0; r < rows.length; r++) tops[r + 1] = tops[r] + rows[r].h;
+  const totalH = tops[rows.length];
   const height = scroller.clientHeight || 520;
-  const first = Math.max(0, Math.floor(scroller.scrollTop / h) - 4);
-  const last = Math.min(total, first + Math.ceil(height / h) + 8);
-  const sig = first + ":" + last + ":" + total + ":" + nodeList.version;
+  const target = Math.max(0, scroller.scrollTop - NODE_INSET);
+  let lo = 0, hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (tops[mid + 1] <= target) lo = mid + 1; else hi = mid;
+  }
+  const first = Math.max(0, lo - 2);
+  let last = first;
+  while (last < rows.length && tops[last] < target + height + 240) last++;
+  const sig = first + ":" + last + ":" + rows.length + ":" + cols + ":" + nodeList.version;
   if (!force && sig === nodeList.sig) return;
   nodeList.sig = sig;
   nodeList.first = first;
   nodeList.last = last;
-  if (!total) {
-    const hint = nodeList.all.length ? "没有匹配的节点" : "还没有节点，去「订阅」页导入";
-    body.innerHTML = '<tr><td colspan="4">' + emptyState(hint) + "</td></tr>";
+  if (!nodeList.items.length) {
+    const hint = (nodeList.all || []).length ? "没有匹配的节点" : "还没有节点，去「配置管理」页导入";
+    body.innerHTML = '<div class="ng-empty">' + emptyState(hint) + "</div>";
     return;
   }
+  const colCss = "grid-template-columns:repeat(" + cols + ",minmax(0,1fr));";
   let html = "";
-  if (first > 0) html += '<tr class="vpad" style="height:' + first * h + 'px"><td colspan="4"></td></tr>';
-  for (let i = first; i < last; i++) html += nodeRowHTML(nodeList.items[i]);
-  if (last < total) html += '<tr class="vpad" style="height:' + (total - last) * h + 'px"><td colspan="4"></td></tr>';
+  if (first > 0) html += '<div class="ng-pad" style="height:' + tops[first] + 'px"></div>';
+  for (let r = first; r < last; r++) {
+    const row = rows[r];
+    if (row.kind === "hdr") {
+      html += nodeHeaderHTML(nodeList.items[row.at]);
+      continue;
+    }
+    let cards = "";
+    for (let k = row.at; k < row.at + row.n; k++) cards += nodeCardHTML(nodeList.items[k]);
+    html += '<div class="ng-row" style="height:' + row.h + "px;" + colCss + '">' + cards + "</div>";
+  }
+  if (last < rows.length) html += '<div class="ng-pad" style="height:' + (totalH - tops[last]) + 'px"></div>';
   body.innerHTML = html;
-  const probe = body.querySelector("tr[data-node-row]");
-  if (probe && !nodeList.measured) {
-    const real = Math.round(probe.getBoundingClientRect().height);
-    nodeList.measured = true;
-    if (real > 8 && Math.abs(real - h) > 1) {
-      nodeList.rowH = real;
-      nodeList.first = -1;
-      renderNodeWindow(true);
+  // The first paint measures a real row and corrects the guess, so the geometry
+  // stays right whatever the theme font metrics turn out to be.
+  if (!nodeList.measured) {
+    const probe = body.querySelector(".ng-row");
+    if (probe) {
+      nodeList.measured = true;
+      const real = Math.round(probe.getBoundingClientRect().height);
+      if (real > 8 && Math.abs(real - nodeList.rowH) > 1) {
+        nodeList.rowH = real;
+        nodeList.sig = "";
+        renderNodeWindow(true);
+      }
     }
   }
 }
 
 function onNodeRowClick(event) {
-  const head = event.target.closest("tr[data-group-row]");
+  const head = event.target.closest("[data-group-row]");
   if (head) { toggleNodeGroup(head.dataset.groupRow); return; }
   const btn = event.target.closest("button");
-  if (!btn || btn.disabled) return;
-  if (btn.dataset.switch) switchNode(btn.dataset.switch);
-  else if (btn.dataset.test) testDelay(btn, nodeList.coreId, btn.dataset.test);
-  else if (btn.dataset.chain) openNodeChain(btn.dataset.chain);
-  else if (btn.dataset.remove) removeNode(btn.dataset.remove);
+  if (btn) {
+    if (btn.disabled) return;
+    if (btn.dataset.test) testDelay(btn, nodeList.coreId, btn.dataset.test);
+    else if (btn.dataset.chain) openNodeChain(btn.dataset.chain);
+    else if (btn.dataset.remove) removeNode(btn.dataset.remove);
+    return;
+  }
+  // Clicking the card itself is the switch. A node with no route to the current
+  // exit still answers with the reason instead of doing nothing at all.
+  const card = event.target.closest("[data-switch]");
+  if (card) switchNode(card.dataset.switch);
 }
 
 // Apply the leaf first so selecting a parent cannot briefly use an old child.
 // Read back the whole chain before reporting success and undo partial writes
 // if a later selection fails.
 async function switchNode(name) {
-  if (nodeSwitchBusy) return;
+  if (nodeSwitchBusy) { toast("正在切换，请稍候"); return; }
   const running = runningCore();
   if (!running || running.id !== nodeList.coreId) { toast("没有运行中的内核", "err"); return; }
+  const card = nodeList.rows ? nodeList.rows.querySelector('[data-switch="' + CSS.escape(name) + '"]') : null;
+  // Nothing to switch when the node is not reachable from the current exit;
+  // say why instead of leaving the click unanswered.
+  if (!nodeSwitchRoutes.has(name) && coreModeCache !== "direct") { toast(NO_GROUP_TIP, "err"); return; }
   nodeSwitchBusy = true;
+  if (card) card.classList.add("switching");
   const changed = [];
-  $$("#nodes-rows button[data-switch]").forEach((button) => { button.disabled = true; });
   try {
     const [view, cfg, mode] = await Promise.all([
       api("/api/cores/proxies?id=" + encodeURIComponent(running.id)),
@@ -3367,11 +3932,9 @@ async function switchNode(name) {
   } finally {
     nodeSwitchBusy = false;
     // No version bump: refreshProxies() repaints the highlight in place, so the
-    // row the user clicked survives the round trip. The buttons therefore have
-    // to be released by hand - otherwise a failed switch leaves them disabled.
-    $$("#nodes-rows button[data-switch]").forEach((button) => {
-      if (nodeSwitchRoutes.has(button.dataset.switch)) button.disabled = false;
-    });
+    // card the user clicked survives the round trip. The pending mark is
+    // cleared by hand - otherwise a failed switch leaves it stuck.
+    if (card) card.classList.remove("switching");
     await refreshProxies();
     renderOverviewProxy();
   }
@@ -3406,11 +3969,11 @@ window.__syanClashNodeBench = function (count) {
     const t0 = performance.now();
     renderNodeWindow(true);
     const build = performance.now() - t0;
-    const domRows = nodeList.rows ? nodeList.rows.querySelectorAll("tr").length : 0;
+    const domRows = nodeList.rows ? nodeList.rows.querySelectorAll(".node-card").length : 0;
     // Jump to the middle: this is what a scrollbar drag costs.
     const t1 = performance.now();
     if (nodeList.scroll) {
-      nodeList.scroll.scrollTop = Math.floor((nodeList.rowH * count) / 2);
+      nodeList.scroll.scrollTop = Math.floor((nodeList.scroll.scrollHeight || 0) / 2);
       renderNodeWindow(true);
     }
     const scroll = performance.now() - t1;
@@ -3461,7 +4024,7 @@ function syncGroupSelects(groups) {
 function paintNodeSelection() {
   if (!nodeList.rows) return;
   const selected = new Set(nodeList.selected);
-  nodeList.rows.querySelectorAll("tr[data-node-row]").forEach((row) => {
+  nodeList.rows.querySelectorAll("[data-node-row]").forEach((row) => {
     row.classList.toggle("row-sel", selected.has(row.dataset.nodeRow));
   });
 }
@@ -3472,6 +4035,7 @@ async function refreshProxies() {
     $("#nodes-source").textContent = "";
     setNodesCount(null);
     setHTML($("#nodes-body"), '<div class="card">' + emptyState("没有运行中的内核。到「内核」页下载并启动一个（sing-box / mihomo）后即可在这里管理节点。") + "</div>", "none");
+    syncNodeScopeSelects([]);
     refreshCoreMode();
     return;
   }
@@ -3480,6 +4044,7 @@ async function refreshProxies() {
     setNodesCount(null);
     setHTML($("#nodes-body"), '<div class="card">' + emptyState(
       "内核 " + running.name + " 不提供统一控制 API：没有代理组、无法在线切换与测速。需要这些功能请改用 sing-box 或 mihomo（Xray 仍可用于 REALITY 等协议）。") + "</div>", "noapi");
+    syncNodeScopeSelects([]);
     refreshCoreMode();
     return;
   }
@@ -3490,6 +4055,7 @@ async function refreshProxies() {
     state.proxies = view;
     const groups = view.groups || [];
     const nodes = view.nodes || [];
+    await loadSubIndex();
     nodeGroups = buildNodeGroups(view, nodes);
     nodeSwitchRoutes = buildNodeSwitchRoutes(view, state.profile, coreModeCache);
     setNodesCount(nodes.length);
@@ -3555,6 +4121,7 @@ async function refreshProxies() {
         btn.onclick = () => pickGroup(running.id, btn.dataset.pick);
       });
     }
+    syncNodeScopeSelects(groups);
     syncGroupSelects(groups);
     paintNodeSelection();
     applyNodeFilter();
@@ -3564,8 +4131,20 @@ async function refreshProxies() {
   }
 }
 
+/* Writes one latency result where it belongs: the in-memory table, the history
+   series, and the badge on the card. The card may be scrolled out of view right
+   now, so the value is kept and the next render picks it up. */
+function paintNodeDelay(name, ms) {
+  nodeDelays[name] = ms;
+  recordNodeDelay(name, ms);
+  const cell = $("#delay-" + CSS.escape(name));
+  if (cell) cell.innerHTML = delayCellHTML(name, ms);
+}
+
 async function testDelay(btn, coreId, name) {
-  const original = btn ? btn.textContent : "";
+  // The control may be a text button or the card's icon, so the original markup
+  // is what gets put back.
+  const original = btn ? btn.innerHTML : "";
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin"></span>';
@@ -3574,14 +4153,7 @@ async function testDelay(btn, coreId, name) {
     const res = await api("/api/cores/delay?id=" + encodeURIComponent(coreId) +
       "&name=" + encodeURIComponent(name) + "&timeout=5000");
     const delays = res.delays || {};
-    for (const [key, ms] of Object.entries(delays)) {
-      // The result is kept, not just painted: the row may be scrolled out of
-      // the window right now, and it has to come back with its number.
-      nodeDelays[key] = ms;
-      recordNodeDelay(key, ms);
-      const cell = $("#delay-" + CSS.escape(key));
-      if (cell) cell.innerHTML = delayCellHTML(key, ms);
-    }
+    for (const [key, ms] of Object.entries(delays)) paintNodeDelay(key, ms);
     return delays;
   } catch (e) {
     toast("测速失败：" + e.message, "err");
@@ -3589,12 +4161,12 @@ async function testDelay(btn, coreId, name) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = original || "测速";
+      btn.innerHTML = original;
     }
   }
 }
 
-$("#nodes-refresh").onclick = refreshProxies;
+$("#nodes-refresh").onclick = () => { nodeTestState = null; renderNodeTestProgress(); refreshProxies(); };
 
 /* Sorting the node table. Delay is the only column worth ordering by in
    practice, so the options are the four Clash Verge offers. Nodes that have
@@ -3627,7 +4199,8 @@ function sortNodes(list) {
 
 function applyNodeFilter() {
   const query = ($("#nodes-search").value || "").trim().toLowerCase();
-  const all = nodeList.all || [];
+  const all = filterNodesByScope(nodeList.all || []);
+  setNodesCount((nodeList.all || []).length, all.length);
   const matched = sortNodes(query ? all.filter((n) => String(n.name || "").toLowerCase().includes(query)) : all.slice());
   // A search always unfolds: hiding a hit inside a folded group would look
   // like the search found nothing.
@@ -3661,12 +4234,49 @@ function applyNodeFilter() {
   renderNodeWindow(false);
 }
 $("#nodes-search").oninput = applyNodeFilter;
-$("#nodes-sort").onchange = (e) => {
-  state.nodeSort = e.target.value;
-  uiPrefs.nodesSort = NODE_SORTS.indexOf(state.nodeSort) >= 0 ? state.nodeSort : "default";
-  saveUiPrefs();
+$("#nodes-sub").onchange = (e) => {
+  state.nodeSub = e.target.value;
+  saveCurrentSub(state.nodeSub);
   applyNodeFilter();
 };
+/* 排序只有一个入口：下拉和「按速度排序」按钮都走这里，所以两边永远不会不同步。 */
+function syncNodeSortButton() {
+  const btn = $("#nodes-sort-speed");
+  if (!btn) return;
+  const on = state.nodeSort === "delay";
+  btn.classList.toggle("primary", on);
+  setText(btn, on ? "恢复默认顺序" : "按速度排序");
+}
+
+function applyNodeSort(value) {
+  state.nodeSort = NODE_SORTS.indexOf(value) >= 0 ? value : "default";
+  uiPrefs.nodesSort = state.nodeSort;
+  saveUiPrefs();
+  const sel = $("#nodes-sort");
+  if (sel && sel.value !== state.nodeSort) {
+    // Same dance syncGroupSelects uses: detach the handler, set the value,
+    // dispatch change so the combo's read-only box follows, reattach.
+    const handler = sel.onchange;
+    sel.onchange = null;
+    sel.value = state.nodeSort;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    sel.onchange = handler;
+  }
+  syncNodeSortButton();
+  applyNodeFilter();
+}
+
+$("#nodes-sort").onchange = (e) => applyNodeSort(e.target.value);
+$("#nodes-sort-speed").onclick = () => applyNodeSort(state.nodeSort === "delay" ? "default" : "delay");
+
+/* 列数由容器宽度算出，窗口一变就得重算并重画（占位块的高度也跟着变）。 */
+window.addEventListener("resize", () => {
+  if (!nodeList.scroll || !document.body.contains(nodeList.scroll)) return;
+  nodeList.cols = 0;
+  nodeList.sig = "";
+  renderNodeWindow(true);
+});
+
 
 async function pickGroup(coreId, group) {
   const testURL = $("#nodes-test-url") ? $("#nodes-test-url").value.trim() : "";
@@ -3748,6 +4358,7 @@ async function renderSystemInfo() {
     const info = await api("/api/system");
     state.system = info;
     $("#tunmode").checked = !!info.tun_enabled;
+    syncDashSwitches();
     setHTML($("#system-info"),
       '<div class="kv"><span class="k">平台</span><span class="v">' + esc(info.platform) + "</span></div>" +
       '<div class="kv"><span class="k">管理员权限</span><span class="v">' + (info.elevated ? "已具备" : "未具备") + "</span></div>" +
@@ -4337,56 +4948,82 @@ $("#tunmode").onchange = async (e) => {
     toast(err.message, "err");
   }
 };
-// Measuring every node used to walk the rendered buttons, which is both
-// wrong now (only the visible rows exist) and slow for a big subscription.
-// A group delay asks the core to test the whole group with its own
-// concurrency - one request instead of a thousand - and falls back to a
-// cancellable walk when no group covers the list.
-let nodeTestAllStop = false;
+/* 全部测速：逐节点测，测完一个就把延迟写到那张卡上，进度条同步走。
+   核心自己也能一次测一整组（/api/cores/sweep），但它要么全好要么全等，
+   中间什么都看不到；这里用有限的并发把过程铺开，每个结果落地即上屏。 */
+let nodeTestState = null;
+const NODE_TEST_WORKERS = 6;
+
+function renderNodeTestProgress() {
+  const panel = $("#nodes-test-panel");
+  if (!panel) return;
+  const st = nodeTestState;
+  if (!st) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  const bar = $("#nodes-test-bar");
+  if (bar && bar.firstElementChild) {
+    bar.firstElementChild.style.width = pct + "%";
+    bar.classList.toggle("warn", st.failed > 0 && st.failed * 2 >= st.total);
+  }
+  setText($("#nodes-test-count"), st.done + " / " + st.total);
+  if (st.stop) setText($("#nodes-test-msg"), "已停止，剩下的节点保持原样");
+  else if (st.done >= st.total) setText($("#nodes-test-msg"), st.failed ? "测速完成，有节点无响应" : "测速完成");
+  else setText($("#nodes-test-msg"), "测速中…每测完一个直接标到卡片上");
+}
+
+function endNodeTest() {
+  const btn = $("#nodes-test-all");
+  if (btn) { btn.dataset.busy = ""; btn.textContent = "全部测速"; }
+}
+
 $("#nodes-test-all").onclick = async () => {
-  const running = state.cores.find((c) => c.running);
+  const running = runningCore();
   if (!running) { toast("没有运行中的内核", "err"); return; }
   const btn = $("#nodes-test-all");
-  if (btn.dataset.busy === "1") {
-    nodeTestAllStop = true;
-    btn.textContent = "停止中…";
+  if (nodeTestState && nodeTestState.done < nodeTestState.total && !nodeTestState.stop) {
+    nodeTestState.stop = true;
+    renderNodeTestProgress();
     return;
   }
-  // nodeList.items carries the group headers too, so the test walk filters
-  // them out before it starts measuring.
-  const rows = (nodeList.items && nodeList.items.length) ? nodeList.items : (nodeList.all || []);
-  const list = rows.filter((n) => n && !n.header);
-  if (!list.length) { toast("没有可测速的节点", "err"); return; }
-  const groups = (state.proxies && state.proxies.groups) || [];
-  const group = groups.find((g) => (g.type === "Selector" || g.type === "URLTest") && (g.members || []).length >= list.length);
-  nodeTestAllStop = false;
+  const nodes = filterNodesByScope(nodeList.all || [])
+    .map((n) => String(n.name == null ? "" : n.name))
+    .filter(Boolean);
+  if (!nodes.length) { toast("没有可测速的节点", "err"); return; }
+  const testURL = $("#nodes-test-url") ? $("#nodes-test-url").value.trim() : "";
+  const queue = nodes.slice();
+  nodeTestState = { done: 0, total: nodes.length, failed: 0, stop: false };
   btn.dataset.busy = "1";
-  try {
-    if (group) {
-      btn.textContent = "测速中…";
-      const res = await api("/api/cores/delay?id=" + encodeURIComponent(running.id) +
-        "&name=" + encodeURIComponent(group.name) + "&timeout=5000");
-      let n = 0;
-      for (const [key, ms] of Object.entries(res.delays || {})) { nodeDelays[key] = ms; recordNodeDelay(key, ms); n++; }
-      nodeList.version++;
-      renderNodeWindow(true);
-      toast("已测速 " + n + " 个节点（" + group.name + "）", "ok");
-    } else {
-      let done = 0;
-      for (const node of list) {
-        if (nodeTestAllStop) break;
-        btn.textContent = "测速 " + (done + 1) + "/" + list.length + "（点击停止）";
-        await testDelay(null, running.id, node.name);
-        done++;
+  btn.textContent = "停止测速";
+  renderNodeTestProgress();
+  const worker = async () => {
+    while (queue.length && !nodeTestState.stop) {
+      const name = queue.shift();
+      try {
+        const res = await api("/api/cores/delay?id=" + encodeURIComponent(running.id) +
+          "&name=" + encodeURIComponent(name) + "&timeout=5000" +
+          (testURL ? "&url=" + encodeURIComponent(testURL) : ""));
+        const delays = res.delays || {};
+        const ms = Object.prototype.hasOwnProperty.call(delays, name) ? delays[name] : Object.values(delays)[0];
+        if (ms === undefined || ms === null || ms <= 0) nodeTestState.failed++;
+        else paintNodeDelay(name, ms);
+      } catch (e) {
+        nodeTestState.failed++;
       }
-      toast(nodeTestAllStop ? "已停止，测了 " + done + " 个" : "测速完成，共 " + done + " 个", "ok");
+      nodeTestState.done++;
+      renderNodeTestProgress();
     }
-  } catch (e) {
-    toast("测速失败：" + e.message, "err");
-  } finally {
-    btn.dataset.busy = "";
-    btn.textContent = "全部测速";
-  }
+  };
+  const lanes = Math.max(1, Math.min(NODE_TEST_WORKERS, queue.length));
+  await Promise.all(Array.from({ length: lanes }, worker));
+  endNodeTest();
+  renderNodeTestProgress();
+  const st = nodeTestState;
+  if (st && st.done >= st.total) toast(st.failed ? "测速完成，有节点无响应" : "测速完成", st.failed ? "err" : "ok");
+};
+
+$("#nodes-test-stop").onclick = () => {
+  if (nodeTestState) { nodeTestState.stop = true; renderNodeTestProgress(); }
 };
 
 /* ---------------- subscription ---------------- */
@@ -4500,7 +5137,8 @@ function quotaBar(info) {
   const total = info.total || 0;
   if (!total) return "";
   const pct = Math.min(100, Math.round((used / total) * 100));
-  return '<div class="pbar' + (pct >= 90 ? " warn" : "") + '" style="height:6px;margin-top:6px"><span style="width:' + pct + '%"></span></div>';
+  return '<div class="sub-bar"><div class="pbar' + (pct >= 90 ? " warn" : "") + '" style="height:6px"><span style="width:' + pct + '%"></span></div>' +
+    '<span class="badge">' + pct + "%</span></div>";
 }
 
 // fmtQuota turns the provider's usage metadata into two display strings.
@@ -4558,27 +5196,27 @@ function bindSubsDrag() {
   const body = $("#subs-body");
   if (!body) return;
   body.addEventListener("dragstart", (e) => {
-    const tr = e.target.closest("tr[data-sub-row]");
-    if (!tr) return;
-    subsDragName = tr.dataset.subRow;
-    tr.classList.add("sub-dragging");
+    const card = e.target.closest("[data-sub-row]");
+    if (!card) return;
+    subsDragName = card.dataset.subRow;
+    card.classList.add("sub-dragging");
     if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", subsDragName); }
   });
   body.addEventListener("dragover", (e) => {
     if (!subsDragName) return;
-    const tr = e.target.closest("tr[data-sub-row]");
-    if (!tr || tr.dataset.subRow === subsDragName) return;
+    const card = e.target.closest("[data-sub-row]");
+    if (!card || card.dataset.subRow === subsDragName) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    $$("#subs-body tr.sub-drop-target").forEach((x) => x.classList.remove("sub-drop-target"));
-    tr.classList.add("sub-drop-target");
+    $$("#subs-body .sub-drop-target").forEach((x) => x.classList.remove("sub-drop-target"));
+    card.classList.add("sub-drop-target");
   });
   body.addEventListener("drop", (e) => {
-    const tr = e.target.closest("tr[data-sub-row]");
-    if (!tr || !subsDragName) return;
+    const card = e.target.closest("[data-sub-row]");
+    if (!card || !subsDragName) return;
     e.preventDefault();
-    const names = $$("#subs-body tr[data-sub-row]").map((x) => x.dataset.subRow);
-    const from = names.indexOf(subsDragName), to = names.indexOf(tr.dataset.subRow);
+    const names = $$("#subs-body [data-sub-row]").map((x) => x.dataset.subRow);
+    const from = names.indexOf(subsDragName), to = names.indexOf(card.dataset.subRow);
     if (from >= 0 && to >= 0 && from !== to) {
       names.splice(to, 0, names.splice(from, 1)[0]);
       saveSubsOrder(names);
@@ -4589,63 +5227,102 @@ function bindSubsDrag() {
   });
   body.addEventListener("dragend", () => {
     subsDragName = "";
-    $$("#subs-body tr").forEach((x) => x.classList.remove("sub-dragging", "sub-drop-target"));
+    $$("#subs-body .sub-card").forEach((x) => x.classList.remove("sub-dragging", "sub-drop-target"));
   });
 }
 bindSubsDrag();
 
+/* 配置管理：一个订阅一张卡片，流量、到期、最后更新和自动刷新都在卡上。 */
+const SUB_ICON = {
+  qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><path d="M13.5 13.5h3v3h-3z"/><path d="M19 13.5h1.5M13.5 19v1.5M18 18h2.5v2.5H18z"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.2v4.4h-4.4"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h4L18.4 9.6l-4-4L4 16z"/><path d="M13.4 6.6l4 4"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.2a2 2 0 0 0-2-2H6.2a2 2 0 0 0-2 2v7.3a2 2 0 0 0 2 2h2.3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l1 12.2h9L17.5 7"/></svg>',
+};
+
+function subAutoText(s) {
+  if (!s.auto) return "已关闭";
+  const base = s.next_update ? fmtRelative(s.next_update) : "待定";
+  return base + (s.interval_hours ? " · 每 " + s.interval_hours + " 小时" : "") +
+    (s.interval_override_hours ? "（自定义）" : "");
+}
+
+function subEditorHTML(s) {
+  return '<div class="sub-editor" data-sub-edit-row="' + esc(s.name) + '" data-sub-edit-url="' + esc(s.url) + '"' +
+    ' data-sub-edit-ua="' + esc(s.user_agent || "") + '" data-sub-edit-interval="' + (s.interval_override_hours || 0) + '" hidden>' +
+    '<div class="row tight">' +
+    '<input class="sub-edit-name" style="max-width:200px" placeholder="名称" value="' + esc(s.name) + '">' +
+    '<input class="sub-edit-url grow" placeholder="订阅链接 https://…" value="' + esc(s.url) + '">' +
+    '<button class="btn primary sm sub-edit-save">保存</button>' +
+    '<button class="btn sm sub-edit-cancel">取消</button>' +
+    '<span class="muted sub-edit-msg" style="font-size:12.5px"></span>' +
+    "</div>" +
+    '<div class="row tight" style="margin-top:6px">' +
+    '<input class="sub-edit-ua grow" placeholder="User-Agent（留空=客户端默认）" value="' + esc(s.user_agent || "") + '">' +
+    '<input class="sub-edit-interval" type="number" min="0" max="720" step="1" style="max-width:170px" title="自动刷新间隔（小时），0 = 用订阅商给的间隔" value="' + (s.interval_override_hours || 0) + '">' +
+    '<span class="muted" style="font-size:12px">当前生效：每 ' + (s.interval_hours || 0) + ' 小时</span>' +
+    "</div></div>";
+}
+
+function subCardHTML(s) {
+  const info = s.info || null;
+  const quota = fmtQuota(info);
+  const current = state.nodeSub === s.name;
+  const expire = info && info.expire ? fmtUnixDate(info.expire) : "";
+  return '<div class="sub-card' + (current ? " current" : "") + '" draggable="true" data-sub-row="' + esc(s.name) + '">' +
+    '<div class="sub-card-head">' +
+    '<span class="drag-grip" title="按住拖动排序">⠿</span>' +
+    '<b title="' + esc(s.name) + '">' + esc(s.name) + "</b>" +
+    (current ? '<span class="badge ok">当前</span>' : "") +
+    '<span class="sub-card-acts">' +
+    '<button class="icon-btn" data-sub-edit="' + esc(s.name) + '" title="改名称或订阅链接">' + SUB_ICON.edit + "</button>" +
+    '<button class="icon-btn" data-sub-copy="' + esc(s.name) + '" data-sub-url="' + esc(s.url) + '" title="复制订阅链接">' + SUB_ICON.copy + "</button>" +
+    '<button class="icon-btn" data-sub-qr="' + esc(s.name) + '" data-sub-url="' + esc(s.url) + '" title="显示订阅二维码">' + SUB_ICON.qr + "</button>" +
+    '<button class="icon-btn" data-sub-update="' + esc(s.name) + '" title="立即更新这个订阅">' + SUB_ICON.refresh + "</button>" +
+    '<button class="icon-btn danger" data-sub-del="' + esc(s.name) + '" title="删除这个订阅">' + SUB_ICON.trash + "</button>" +
+    "</span>" +
+    "</div>" +
+    '<div class="sub-card-body">' +
+    '<div class="sub-line"><span class="k">流量使用情况</span><span class="v">' + esc(quota ? quota.traffic : "-") + "</span></div>" +
+    quotaBar(info) +
+    '<div class="sub-line"><span class="k">到期时间</span><span class="v">' + esc(expire || "-") + "</span></div>" +
+    '<div class="sub-line"><span class="k">最后更新</span><span class="v">' + esc(s.updated_at ? fmtTime(s.updated_at) : "-") + "</span></div>" +
+    "</div>" +
+    (s.last_error ? '<div class="sub-line" style="margin-top:8px"><span class="badge err">失败</span><span class="v faint">' + esc(String(s.last_error).slice(0, 60)) + "</span></div>" : "") +
+    '<div class="sub-card-foot">' +
+    '<label class="switch" title="按订阅商给出的间隔自动刷新">' +
+    '<input type="checkbox" data-sub-auto="' + esc(s.name) + '"' + (s.auto ? " checked" : "") + ">" +
+    '<span class="track"></span><span>自动刷新</span></label>' +
+    '<span class="muted" style="font-size:11.5px">' + esc(subAutoText(s)) + "</span>" +
+    '<span class="faint">' + (s.nodes || 0) + " 个节点</span>" +
+    "</div>" +
+    "</div>" +
+    subEditorHTML(s);
+}
+
 async function loadSubscriptions() {
   try {
-    const subs = orderSubs(await api("/api/subscriptions") || []);
+    const subs = orderSubs(await loadSubIndex());
+    const count = $("#subs-count");
+    if (count) setText(count, subs.length ? "共 " + subs.length + " 个订阅" : "");
     if (!subs.length) {
-      setHTML($("#subs-body"), '<tr><td colspan="7">' + emptyState("还没有保存的订阅") + "</td></tr>", "empty");
+      setHTML($("#subs-body"), '<div style="grid-column:1/-1">' + emptyState("还没有保存的订阅") + "</div>", "empty");
       return;
     }
-    const html = subs.map((s) => {
-      const quota = fmtQuota(s.info);
-      return '<tr draggable="true" data-sub-row="' + esc(s.name) + '">' +
-        '<td><span class="drag-grip" title="按住拖动排序">⠿</span><b>' + esc(s.name) + '</b><div class="faint truncate copyable" title="点击复制订阅地址" data-copy="' + esc(s.url) + '" style="font-size:11px;max-width:200px">' + esc(s.url) + "</div></td>" +
-        '<td class="muted">' + (quota ? esc(quota.traffic) : "-") + quotaBar(s.info) + "</td>" +
-        '<td class="muted">' + (quota && quota.days ? esc(quota.days) : "-") + "</td>" +
-        '<td class="num">' + (s.nodes || 0) + "</td>" +
-        '<td class="muted">' + (s.last_error
-          ? '<span class="badge err">失败</span> ' + esc(String(s.last_error).slice(0, 40))
-          : (s.updated_at ? fmtTime(s.updated_at) : "-")) + "</td>" +
-        // Auto refresh: the switch is the promise, the line under it is the
-        // proof that something is actually scheduled.
-        '<td><label class="switch" title="按订阅商给出的间隔自动刷新">' +
-          '<input type="checkbox" data-sub-auto="' + esc(s.name) + '"' + (s.auto ? " checked" : "") + '>' +
-          '<span class="track"></span></label>' +
-          '<div class="faint" style="font-size:11px">' +
-          (s.auto ? (s.next_update ? fmtRelative(s.next_update) : "待定") : "已关闭") +
-          (s.interval_hours ? " · 每 " + s.interval_hours + " 小时" : "") +
-          (s.interval_override_hours ? "（自定义）" : "") + "</div></td>" +
-        '<td class="num"><div class="sub-actions"><button class="btn sm" data-sub-qr="' + esc(s.name) + '" data-sub-url="' + esc(s.url) + '" title="显示订阅二维码">二维码</button>' +
-        '<button class="btn sm" data-sub-update="' + esc(s.name) + '">更新</button>' +
-        '<button class="btn sm" data-sub-edit="' + esc(s.name) + '" title="改名称或订阅链接">编辑</button>' +
-        '<button class="btn sm danger" data-sub-del="' + esc(s.name) + '">删除</button></div></td>' +
-        "</tr>" +
-        // The editor is a second row that starts hidden, so the table keeps its
-        // shape and the inputs are created once instead of on every click.
-        '<tr class="sub-edit" data-sub-edit-row="' + esc(s.name) + '" data-sub-edit-url="' + esc(s.url) + '"' +
-        ' data-sub-edit-ua="' + esc(s.user_agent || "") + '" data-sub-edit-interval="' + (s.interval_override_hours || 0) + '" hidden><td colspan="7">' +
-        '<div class="row tight">' +
-        '<input class="sub-edit-name" style="max-width:200px" placeholder="名称" value="' + esc(s.name) + '">' +
-        '<input class="sub-edit-url grow" placeholder="订阅链接 https://…" value="' + esc(s.url) + '">' +
-        '<button class="btn primary sm sub-edit-save">保存</button>' +
-        '<button class="btn sm sub-edit-cancel">取消</button>' +
-        '<span class="muted sub-edit-msg" style="font-size:12.5px"></span>' +
-        "</div>" +
-        // P1-8 / P1-9: the request identity and the refresh cadence are per
-        // subscription, so they live in the same editor as the link. 0 hours
-        // means "use the interval the provider advertises".
-        '<div class="row tight" style="margin-top:6px">' +
-        '<input class="sub-edit-ua grow" placeholder="User-Agent（留空=客户端默认）" value="' + esc(s.user_agent || "") + '">' +
-        '<input class="sub-edit-interval" type="number" min="0" max="720" step="1" style="max-width:170px" title="自动刷新间隔（小时），0 = 用订阅商给的间隔" value="' + (s.interval_override_hours || 0) + '">' +
-        '<span class="muted" style="font-size:12px">当前生效：每 ' + (s.interval_hours || 0) + ' 小时</span>' +
-        "</div></td></tr>";
-    }).join("");
+    const html = subs.map(subCardHTML).join("");
     if (!setHTML($("#subs-body"), html)) return;
+    bindSubsEditors();
+    $$("#subs-body .sub-card").forEach((card) => {
+      card.onclick = (e) => {
+        if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest(".drag-grip")) return;
+        const name = card.dataset.subRow;
+        if (!name || name === state.nodeSub) return;
+        state.nodeSub = name;
+        saveCurrentSub(name);
+        loadSubscriptions();
+      };
+    });
     bindSubsEditors();
     $$("#subs-body button[data-sub-update]").forEach((b) => {
       b.onclick = async () => {
@@ -4682,6 +5359,12 @@ async function loadSubscriptions() {
         }
       };
     });
+    $$("#subs-body button[data-sub-copy]").forEach((b) => {
+      b.onclick = async () => {
+        try { await copyText(b.dataset.subUrl); toast("已复制订阅链接", "ok"); }
+        catch (e) { toast("复制失败：" + (e && e.message ? e.message : e), "err"); }
+      };
+    });
     $$("#subs-body button[data-sub-qr]").forEach((b) => {
       b.onclick = () => showQR(b.dataset.subQr, b.dataset.subUrl);
     });
@@ -4700,14 +5383,14 @@ async function loadSubscriptions() {
 function bindSubsEditors() {
 $$("#subs-body button[data-sub-edit]").forEach((b) => {
   b.onclick = () => {
-    const row = b.closest("tr").nextElementSibling;
-    if (!row || !row.classList.contains("sub-edit")) return;
+    const row = $$("#subs-body .sub-editor").find((el) => el.dataset.subEditRow === b.dataset.subEdit);
+    if (!row) return;
     row.hidden = !row.hidden;
     if (!row.hidden) row.querySelector(".sub-edit-name").focus();
   };
 });
 
-$$("#subs-body tr.sub-edit").forEach((row) => {
+$$("#subs-body .sub-editor").forEach((row) => {
   const nameEl = row.querySelector(".sub-edit-name");
   const urlEl = row.querySelector(".sub-edit-url");
   const msg = row.querySelector(".sub-edit-msg");
@@ -4823,8 +5506,16 @@ $("#sub-add").onclick = async () => {
   }
 };
 
+/* 「+」把添加订阅那一行展开，平时收起来，和卡片网格一个高度。 */
+$("#sub-add-open").onclick = () => {
+  const row = $("#sub-add-row");
+  if (!row) return;
+  row.hidden = false;
+  $("#sub-url").focus();
+};
 $("#subs-update-all").onclick = async () => {
   const btn = $("#subs-update-all");
+  const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span>';
   try {
@@ -4835,7 +5526,7 @@ $("#subs-update-all").onclick = async () => {
     toast(e.message, "err");
   } finally {
     btn.disabled = false;
-    btn.textContent = "全部更新";
+    btn.innerHTML = original;
     loadSubscriptions();
   }
 };
@@ -8322,6 +9013,7 @@ refreshStatus();
 renderSystemInfo();
 loadSubscriptions();
 refreshCores().then(refreshTraffic);
+loadOvIP(false);
 loadRules();
 loadConfig();
 loadNetToggles();

@@ -36,6 +36,32 @@ func (a *App) SetSilentStart(on bool) error {
 	return nil
 }
 
+// PresetAutoDone reports whether the built-in default rule bundle has already
+// been offered to this install.
+func (a *App) PresetAutoDone() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.cfg.App.PresetAuto
+}
+
+// markPresetAutoDone records that the default preset has been dealt with. Like
+// the other preferences it writes the file before memory, and it never touches
+// the listeners: a rules preset has nothing to do with the tunnel.
+func (a *App) markPresetAutoDone() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cfg.App.PresetAuto {
+		return
+	}
+	next := a.cfg
+	next.App.PresetAuto = true
+	if err := config.Save(a.cfgPath, next); err != nil {
+		a.log.Warnf("\u4fdd\u5b58\u9ed8\u8ba4\u9884\u8bbe\u6807\u8bb0\u5931\u8d25\uff1a%v", err)
+		return
+	}
+	a.cfg = next
+}
+
 // UpdateSource is where the client looks for a newer build of itself.
 func (a *App) UpdateSource() string {
 	a.mu.Lock()

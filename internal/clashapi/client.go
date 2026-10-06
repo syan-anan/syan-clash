@@ -229,6 +229,48 @@ func (c *Client) Delay(ctx context.Context, name, testURL string, timeoutMS int)
 	return group, nil
 }
 
+// groupDelayTimeout is the budget for one whole-group measurement. The core
+// fans the members out itself, but a large group with several dead nodes can
+// still take a while, and the short timeout the single-proxy calls use would
+// cut it off half way.
+const groupDelayTimeout = 3 * time.Minute
+
+// GroupDelay measures every member of a group in one call. The core runs the
+// members in parallel and answers with a name -> delay map, which is both
+// faster and more complete than walking the members one request at a time.
+// Cores that predate the endpoint answer 404 and the caller falls back to the
+// walk.
+func (c *Client) GroupDelay(ctx context.Context, name, testURL string, timeoutMS int) (map[string]int, error) {
+	if testURL == "" {
+		testURL = "http://www.gstatic.com/generate_204"
+	}
+	if timeoutMS <= 0 {
+		timeoutMS = 5000
+	}
+	path := "/group/" + url.PathEscape(name) + "/delay?url=" + url.QueryEscape(testURL) +
+		"&timeout=" + strconv.Itoa(timeoutMS)
+	req, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	httpc := *c.http
+	httpc.Timeout = groupDelayTimeout
+	resp, err := httpc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("clash api group delay %s: %w", name, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		return nil, fmt.Errorf("clash api group delay %s: %s: %s", name, resp.Status, strings.TrimSpace(string(detail)))
+	}
+	var out map[string]int
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 32<<20)).Decode(&out); err != nil {
+		return nil, fmt.Errorf("clash api group delay %s: decode: %w", name, err)
+	}
+	return out, nil
+}
+
 // Connections fetches the core's connection table.
 func (c *Client) Connections(ctx context.Context) (Connections, error) {
 	var out Connections

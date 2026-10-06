@@ -156,13 +156,14 @@ func TestNodeTableRefreshesInPlace(t *testing.T) {
 		t.Error("the structural signature that decides whether to rebuild the table is gone")
 	}
 	// Switching a node must not bump the version: a rebuild would drop the very
-	// row the click came from. The buttons are released by hand instead.
+	// card the click came from. The card's pending mark is cleared by hand
+	// instead, so a failed switch cannot leave it stuck.
 	sw := jsFunction(t, script, "switchNode")
 	if strings.Contains(sw, "nodeList.version++") {
 		t.Error("switchNode bumps the table version again, which rebuilds the clicked row")
 	}
-	if !strings.Contains(sw, "button.disabled = false") {
-		t.Error("switchNode no longer releases the switch buttons, so a failed switch leaves them dead")
+	if !strings.Contains(sw, `classList.remove("switching")`) {
+		t.Error("switchNode no longer clears the pending mark, so a failed switch leaves the card stuck")
 	}
 }
 

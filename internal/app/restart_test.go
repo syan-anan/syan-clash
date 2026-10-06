@@ -63,18 +63,24 @@ func TestNodeNamesOfIsStable(t *testing.T) {
 	}
 }
 
-func TestNamesOfImportedMerges(t *testing.T) {
-	got := namesOfImported([]string{"old1"}, []string{"new1"})
-	// New names lead; a name already known stays.
-	if len(got) != 2 {
-		t.Fatalf("got %v, want 2 entries", got)
-	}
-	if got[0] != "new1" || got[1] != "old1" {
-		t.Errorf("got %v, want [new1 old1]", got)
+func TestNamesOfImportedFollowsTheLatestImport(t *testing.T) {
+	// A successful import replaces the record: a subscription that was
+	// re-pointed at a smaller provider must stop claiming the servers it used
+	// to offer, or the next restart hands those names back to it and the other
+	// subscription that really provides them shows up empty.
+	got := namesOfImported([]string{"old1", "old2"}, []string{"new1"})
+	if len(got) != 1 || got[0] != "new1" {
+		t.Fatalf("got %v, want [new1]", got)
 	}
 	// No duplicates when the same name arrives twice.
-	again := namesOfImported(got, []string{"new1"})
-	if len(again) != 2 {
+	again := namesOfImported(got, []string{"new1", "new1"})
+	if len(again) != 1 || again[0] != "new1" {
 		t.Errorf("namesOfImported duplicated: %v", again)
+	}
+	// An import that delivered nothing keeps what was known: only a successful
+	// import may shrink the record.
+	kept := namesOfImported([]string{"a", "b"}, nil)
+	if len(kept) != 2 {
+		t.Errorf("an empty import wiped the record: %v", kept)
 	}
 }

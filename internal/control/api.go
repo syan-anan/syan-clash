@@ -124,6 +124,9 @@ func (h *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/subscriptions/auto", h.handleSubscriptionAuto)
 	mux.HandleFunc("POST /api/subscriptions/options", h.handleSubscriptionOptions)
 	mux.HandleFunc("POST /api/cores/pick", h.handleCorePick)
+	// "全部测速" measures a whole group without switching anything, so it
+	// gets its own endpoint instead of the picker the 选优 buttons use.
+	mux.HandleFunc("POST /api/cores/sweep", h.handleCoreSweep)
 	mux.HandleFunc("POST /api/profile/rules", h.handleAddRule)
 	mux.HandleFunc("DELETE /api/profile/rules", h.handleRemoveRule)
 	// P15: rule sets (mihomo’s rule-providers). A rule of kind
@@ -1226,6 +1229,34 @@ func (h *API) handleCorePick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.app.SweepGroup(r.Context(), body.ID, body.Group, body.TestURL)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "result": result})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *API) handleCoreSweep(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID      string `json:"id"`
+		Group   string `json:"group"`
+		TestURL string `json:"test_url"`
+	}
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
+	if err := dec.Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, fmt.Errorf("invalid JSON body: %w", err))
+		return
+	}
+	if body.ID == "" || body.Group == "" {
+		writeErr(w, http.StatusBadRequest, fmt.Errorf("id and group are required"))
+		return
+	}
+	// A whole-group sweep is one long request against the core: it is the core
+	// that fans the members out. Give it room instead of the short budget the
+	// single-proxy calls use.
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+	defer cancel()
+	result, err := h.app.MeasureGroup(ctx, body.ID, body.Group, body.TestURL, 5000)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "result": result})
 		return

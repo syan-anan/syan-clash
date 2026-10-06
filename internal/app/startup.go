@@ -15,6 +15,10 @@ func (a *App) StartupTasks(ctx context.Context, opts StartupOptions) {
 	// profile means the core - auto-started or started from the tray - never
 	// sees them. It is a no-op once the list is clean.
 	a.HealInfoNodes(ctx)
+	// The default rule bundle lands before anything else reads the profile, so
+	// a fresh client already routes 国内直连 / 国外走节点 without the user having
+	// to find the 规则 page. It only ever runs once per install.
+	a.ApplyDefaultPresetOnce(ctx)
 	if opts.UpdateSubscriptions {
 		go func() {
 			// Wait for the core to be up so an update can take effect

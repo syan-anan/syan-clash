@@ -85,6 +85,13 @@ type AppSettings struct {
 	// client still refuses to overwrite a registration that belongs to
 	// somebody else.
 	URLScheme *bool `json:"url_scheme,omitempty"`
+
+	// PresetAuto records that the built-in default rule bundle has already been
+	// offered to this install. It is written the first time the client starts
+	// (and whenever the user applies or removes a preset by hand), so the
+	// default is applied once instead of on every launch - removing the preset
+	// afterwards is a decision, not a gap to be filled again.
+	PresetAuto bool `json:"preset_auto,omitempty"`
 }
 
 // URLSchemeEnabled reports whether the user asked this client to own the

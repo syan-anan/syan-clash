@@ -119,3 +119,32 @@ func TestRuleProvidersAcceptsAnEmptyReport(t *testing.T) {
 		t.Errorf("got %d entries from an empty report", len(got))
 	}
 }
+
+// A whole-group measurement goes to /group/{name}/delay, the endpoint mihomo
+// added for exactly that. The per-proxy endpoint answers a group with a single
+// number - the delay of whichever member happens to be selected - so asking it
+// for a group silently measures one node and reports it under the group's name.
+func TestGroupDelayAsksTheGroupEndpoint(t *testing.T) {
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotQuery = r.URL.RawQuery
+		_, _ = io.WriteString(w, `{"香港 01":120,"日本 02":40}`)
+	}))
+	defer srv.Close()
+
+	c := New(strings.TrimPrefix(srv.URL, "http://"), "")
+	got, err := c.GroupDelay(context.Background(), "GLOBAL", "", 5000)
+	if err != nil {
+		t.Fatalf("GroupDelay: %v", err)
+	}
+	if gotPath != "/group/GLOBAL/delay" {
+		t.Errorf("path = %q, want /group/GLOBAL/delay", gotPath)
+	}
+	if !strings.Contains(gotQuery, "timeout=5000") || !strings.Contains(gotQuery, "url=") {
+		t.Errorf("query = %q, want a test url and a timeout", gotQuery)
+	}
+	if got["香港 01"] != 120 || got["日本 02"] != 40 {
+		t.Errorf("GroupDelay = %v, want the member map", got)
+	}
+}

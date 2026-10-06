@@ -56,3 +56,12 @@ lab/
 *.bak
 
 sysproxy-state.json
+
+# --- publish hygiene (added 2026-10-06) --------------------------------------
+# The embedded-browser sign-in store: live chatgpt.com cookies.
+ai-session.json
+
+# Timestamped copies of the files above (config.json.bak_*, subscriptions.json.bak_*,
+# index.html.bak_* ...). They carry the same tokens as the originals.
+*.bak_*
+*.bak2*
