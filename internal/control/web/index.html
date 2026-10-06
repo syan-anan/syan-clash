@@ -781,10 +781,10 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
   #nodes-scroll { padding: 12px; }
   .node-grid { display: block; }
   .ng-pad { width: 100%; }
-  .ng-row { display: grid; gap: 12px; align-items: start; padding-bottom: 12px; }
+  .ng-row { display: grid; gap: 16px; align-items: start; padding-bottom: 16px; }
   .ng-empty { padding: 6px 2px 18px; }
   .ng-hdr {
-    display: flex; align-items: center; gap: 4px; padding: 0 2px 12px;
+    display: flex; align-items: center; gap: 4px; padding: 0 2px 16px;
     color: var(--ink); font-weight: 700; font-size: 13px;
     cursor: pointer; user-select: none;
   }
@@ -3402,7 +3402,7 @@ function setNodesCount(total, shown) {
    stays right whatever the theme's font metrics turn out to be. */
 const nodeList = {
   all: [], items: [], selected: [], rows: null, scroll: null, coreId: "",
-  first: -1, last: -1, rowH: 104, cardH: 92, cols: 0, measured: false, frame: 0,
+  first: -1, last: -1, rowH: 108, cardH: 92, cols: 0, measured: false, frame: 0,
   query: "", version: 0, sig: "", dataSig: "", itemSig: "",
 };
 const nodeDelays = {};
@@ -3776,9 +3776,9 @@ function ensureNodeShell() {
    占位块撑住滚动条。差别是「一行」现在可以放 N 张卡（N 由容器宽度算出），
    分组标题自己占一整行。所以每一行的行高由这里显式写死，滚动位置才能用
    前缀和 + 二分精确还原，而不是靠「行高都一样」这一个隐含前提。 */
-const NODE_CARD_GAP = 12;
+const NODE_CARD_GAP = 16;
 const NODE_CARD_MIN = 250;
-const NODE_HDR_H = 46;
+const NODE_HDR_H = 50;
 const NODE_INSET = 12; // #nodes-scroll 的内边距
 
 function nodeColumns() {
@@ -3845,7 +3845,10 @@ function renderNodeWindow(force) {
     }
     let cards = "";
     for (let k = row.at; k < row.at + row.n; k++) cards += nodeCardHTML(nodeList.items[k]);
-    html += '<div class="ng-row" style="height:' + row.h + "px;" + colCss + '">' + cards + "</div>";
+    // No height on the row: the cards decide how tall it is, and the renderer
+    // measures that once (see the probe below). A hard height is what let a
+    // taller card spill over its row and overlap the one underneath.
+    html += '<div class="ng-row" style="' + colCss + '">' + cards + "</div>";
   }
   if (last < rows.length) html += '<div class="ng-pad" style="height:' + (totalH - tops[last]) + 'px"></div>';
   body.innerHTML = html;

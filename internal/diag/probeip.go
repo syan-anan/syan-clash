@@ -81,7 +81,7 @@ const (
 	urlCloudflareTrace = "https://www.cloudflare.com/cdn-cgi/trace"
 	urlIPWhoIs         = "https://ipwho.is/"
 	urlIPSb            = "https://api.ip.sb/geoip"
-	urlIPApi           = "http://ip-api.com/json/?fields=status,country,countryCode,city,isp,org,as,asname,mobile,proxy,hosting,query"
+	urlIPApi           = "http://ip-api.com/json/?fields=status,country,countryCode,city,isp,org,as,asname,mobile,proxy,hosting,query&lang=zh-CN"
 )
 
 // CheckIP runs the purity probe and reports where it went. refresh skips a
@@ -180,7 +180,6 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 		rep.IP = firstString(rep.IP, out.IP)
 		rep.Country = firstString(strings.ToUpper(out.Code), rep.Country)
 		rep.CountryName = firstString(rep.CountryName, out.Country)
-		rep.City = firstString(rep.City, out.City)
 		if out.Conn.ASN > 0 {
 			rep.ASN = firstString(rep.ASN, "AS"+itoa(out.Conn.ASN))
 		}
@@ -218,6 +217,7 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 		var out struct {
 			Status      string `json:"status"`
 			Query       string `json:"query"`
+			Country     string `json:"country"`
 			CountryCode string `json:"countryCode"`
 			City        string `json:"city"`
 			ISP         string `json:"isp"`
@@ -239,7 +239,14 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 		mu.Lock()
 		rep.IP = firstString(rep.IP, out.Query)
 		rep.Country = firstString(strings.ToUpper(out.CountryCode), rep.Country)
-		rep.City = firstString(rep.City, out.City)
+		// ip-api is the only source that can answer in Chinese (lang=zh-CN),
+		// so its place names win outright instead of racing the English ones.
+		if out.Country != "" {
+			rep.CountryName = out.Country
+		}
+		if out.City != "" {
+			rep.City = out.City
+		}
 		rep.ISP = firstString(rep.ISP, out.ISP)
 		rep.Org = firstString(rep.Org, out.Org, out.ASName)
 		if rep.ASN == "" && strings.HasPrefix(strings.ToUpper(out.AS), "AS") {
