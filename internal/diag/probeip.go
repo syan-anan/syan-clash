@@ -26,6 +26,7 @@ type IPReport struct {
 	Country     string    `json:"country,omitempty"`
 	CountryName string    `json:"country_name,omitempty"`
 	City        string    `json:"city,omitempty"`
+	Region      string    `json:"region,omitempty"`
 	ASN         string    `json:"asn,omitempty"`
 	Org         string    `json:"org,omitempty"`
 	ISP         string    `json:"isp,omitempty"`
@@ -81,7 +82,8 @@ const (
 	urlCloudflareTrace = "https://www.cloudflare.com/cdn-cgi/trace"
 	urlIPWhoIs         = "https://ipwho.is/"
 	urlIPSb            = "https://api.ip.sb/geoip"
-	urlIPApi           = "http://ip-api.com/json/?fields=status,country,countryCode,city,isp,org,as,asname,mobile,proxy,hosting,query&lang=zh-CN"
+	urlIPApi           = "http://ip-api.com/json/?fields=status,country,countryCode,regionName,city,isp,org,as,asname,mobile,proxy,hosting,query&lang=zh-CN"
+	urlCNPlace         = "https://ip.zxinc.org/api.php?type=json&ip="
 )
 
 // CheckIP runs the purity probe and reports where it went. refresh skips a
@@ -219,6 +221,7 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 			Query       string `json:"query"`
 			Country     string `json:"country"`
 			CountryCode string `json:"countryCode"`
+			RegionName  string `json:"regionName"`
 			City        string `json:"city"`
 			ISP         string `json:"isp"`
 			Org         string `json:"org"`
@@ -244,10 +247,12 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 		if out.Country != "" {
 			rep.CountryName = out.Country
 		}
+		if out.RegionName != "" {
+			rep.Region = out.RegionName
+		}
 		if out.City != "" {
 			rep.City = out.City
 		}
-		rep.ISP = firstString(rep.ISP, out.ISP)
 		rep.Org = firstString(rep.Org, out.Org, out.ASName)
 		if rep.ASN == "" && strings.HasPrefix(strings.ToUpper(out.AS), "AS") {
 			rep.ASN = out.AS
@@ -264,6 +269,32 @@ func (p *Prober) IPReport(ctx context.Context, via Via) (IPReport, error) {
 		if ptr, err := p.lookupPTR(ctx, via, rep.IP); err == nil && ptr != "" {
 			rep.PTR = ptr
 			note("dns.google PTR")
+		}
+	}
+
+	// A source that only knows English (ipwho.is, api.ip.sb) must not leave the
+	// card reading "United States" when the country code has a Chinese name we
+	// already know. ip-api's own answer wins whenever it came back Chinese.
+	rep.CountryName = localisedCountry(rep.Country, rep.CountryName)
+
+	// ip-api has no Chinese name for some mainland districts (a Hohhot address
+	// came back as "Haoxinying"), and a Chinese library is the only thing that
+	// fills that in. It is asked for CN exits only: for anything else its data
+	// is wrong - a US address came back as Canada.
+	if rep.Country == "CN" {
+		if place, ok := p.probeCNPlace(ctx, via, rep.IP); ok {
+			if place.City != "" {
+				rep.City = place.City
+			}
+			if rep.Region == "" && place.Province != "" {
+				rep.Region = place.Province
+			}
+			// The carrier only replaces an English one: "Chinanet" is not what a
+			// Chinese reader calls their own line, the Chinese name is.
+			if place.ISP != "" && !hasHan(rep.ISP) {
+				rep.ISP = place.ISP
+			}
+			note("ip.zxinc.org")
 		}
 	}
 
@@ -411,4 +442,138 @@ func classify(rep *IPReport) {
 	default:
 		rep.RiskLabel = "干净"
 	}
+}
+
+// countryZH names the country codes that show up as proxy exits. It is only
+// consulted when no source answered in Chinese, so a working ip-api call always
+// wins over this table.
+var countryZH = map[string]string{
+	"CN": "中国",
+	"HK": "中国香港",
+	"MO": "中国澳门",
+	"TW": "中国台湾",
+	"US": "美国",
+	"CA": "加拿大",
+	"MX": "墨西哥",
+	"BR": "巴西",
+	"AR": "阿根廷",
+	"CL": "智利",
+	"JP": "日本",
+	"KR": "韩国",
+	"SG": "新加坡",
+	"MY": "马来西亚",
+	"TH": "泰国",
+	"VN": "越南",
+	"PH": "菲律宾",
+	"ID": "印度尼西亚",
+	"IN": "印度",
+	"PK": "巴基斯坦",
+	"BD": "孟加拉国",
+	"GB": "英国",
+	"IE": "爱尔兰",
+	"FR": "法国",
+	"DE": "德国",
+	"NL": "荷兰",
+	"BE": "比利时",
+	"LU": "卢森堡",
+	"CH": "瑞士",
+	"AT": "奥地利",
+	"IT": "意大利",
+	"ES": "西班牙",
+	"PT": "葡萄牙",
+	"SE": "瑞典",
+	"NO": "挪威",
+	"DK": "丹麦",
+	"FI": "芬兰",
+	"IS": "冰岛",
+	"PL": "波兰",
+	"CZ": "捷克",
+	"SK": "斯洛伐克",
+	"HU": "匈牙利",
+	"RO": "罗马尼亚",
+	"BG": "保加利亚",
+	"GR": "希腊",
+	"UA": "乌克兰",
+	"RU": "俄罗斯",
+	"TR": "土耳其",
+	"AE": "阿联酋",
+	"SA": "沙特阿拉伯",
+	"IL": "以色列",
+	"IR": "伊朗",
+	"EG": "埃及",
+	"ZA": "南非",
+	"NG": "尼日利亚",
+	"KE": "肯尼亚",
+	"AU": "澳大利亚",
+	"NZ": "新西兰",
+	"KZ": "哈萨克斯坦",
+	"AM": "亚美尼亚",
+	"GE": "格鲁吉亚",
+	"MD": "摩尔多瓦",
+}
+
+// localisedCountry keeps a Chinese country name when there is one, and otherwise
+// looks the country code up in the table above.
+func localisedCountry(code, name string) string {
+	if hasHan(name) {
+		return name
+	}
+	if zh, ok := countryZH[strings.ToUpper(strings.TrimSpace(code))]; ok {
+		return zh
+	}
+	return name
+}
+
+func hasHan(s string) bool {
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff {
+			return true
+		}
+	}
+	return false
+}
+
+// cnPlace is what the Chinese library knows: province, city and carrier, all
+// in Chinese.
+type cnPlace struct {
+	Province string
+	City     string
+	ISP      string
+}
+
+// probeCNPlace asks the one Chinese library that answers in Chinese for a
+// mainland address. Callers must only use it for CN exits: for anything else
+// its data is wrong (a US address came back as Canada).
+func (p *Prober) probeCNPlace(ctx context.Context, via Via, ip string) (cnPlace, bool) {
+	if ip == "" {
+		return cnPlace{}, false
+	}
+	var out struct {
+		Code int `json:"code"`
+		Data struct {
+			Country string `json:"country"`
+			Local   string `json:"local"`
+		} `json:"data"`
+	}
+	if err := p.getJSON(ctx, via, urlCNPlace+ip, &out); err != nil {
+		return cnPlace{}, false
+	}
+	if out.Code != 0 {
+		return cnPlace{}, false
+	}
+	// country reads country<dash>province<dash>city.
+	parts := strings.FieldsFunc(out.Data.Country, func(r rune) bool {
+		return r == '\u2013' || r == '\u2014' || r == '-'
+	})
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	place := cnPlace{ISP: strings.TrimSpace(out.Data.Local)}
+	if len(parts) >= 2 {
+		place.Province = parts[1]
+	}
+	if len(parts) >= 3 {
+		place.City = parts[len(parts)-1]
+	}
+	return place, true
 }

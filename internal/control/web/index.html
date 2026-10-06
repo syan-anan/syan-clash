@@ -3203,6 +3203,27 @@ async function ovCoreToggle(btn) {
 let ovIPReport = null;
 let ovIPMasked = false;
 
+const HAS_HAN = /[\u4e00-\u9fff]/;
+
+/* 出口位置：国家 · 省/州 · 城市，能中文就中文。
+   城市只有英文（小地方没译名）时退到省/州——省/州那一层数据源一定有中文，
+   所以这一行至少是「国家 · 省」，不会整行英文。 */
+function ipPlaceText(rep) {
+  if (!rep) return "";
+  const han = (v) => HAS_HAN.test(String(v == null ? "" : v));
+  const country = rep.country_name || rep.country || "";
+  const region = han(rep.region) ? rep.region : "";
+  const city = han(rep.city) ? rep.city : "";
+  const parts = [country];
+  if (region) parts.push(region);
+  if (city) parts.push(city);
+  else if (!region && rep.city) parts.push(rep.city);
+  // 运营商是公司名，数据源基本只有英文写法；只有当它确实是中文时才接在后面，
+  // 避免一行中文里夹一串英文公司名。
+  if (han(rep.isp)) parts.push(rep.isp);
+  return parts.filter(Boolean).join(" · ");
+}
+
 function renderOvIP() {
   const el = $("#ov-ip");
   if (!el) return;
@@ -3211,11 +3232,9 @@ function renderOvIP() {
   el.classList.toggle("masked", ovIPMasked);
   setText(el, ovIPMasked ? value.replace(/[0-9a-f]/gi, "•") : value);
   el.title = ovIPMasked ? "点击显示" : value;
-  // Country + region (city) is the first question this card answers; the
-  // carrier follows it.
-  const where = rep ? [rep.country_name || rep.country, rep.city].filter(Boolean).join(" · ") : "";
-  const who = rep ? [where, rep.isp || rep.org].filter(Boolean).join(" · ") : "";
-  setText($("#ov-ip-isp"), who || "点刷新检测当前出口（没开节点时是本机地址）");
+  // 位置用中文（国家 · 省 · 市）。运营商是公司名，数据源只有英文写法，
+  // 放在这里只会把一行中文变成中英混排，所以这张卡片不展示它（诊断页的完整报告里仍然有）。
+  setText($("#ov-ip-isp"), ipPlaceText(rep) || "点刷新检测当前出口（没开节点时是本机地址）");
 }
 
 async function loadOvIP(refresh) {
