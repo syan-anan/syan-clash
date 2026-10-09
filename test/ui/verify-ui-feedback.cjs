@@ -131,6 +131,13 @@ async function main() {
       assert.equal(hidden, false, 'the site list must be visible when there are sites');
       await page.locator('.metric.metric-conns').screenshot({ path: path.join(OUTPUT, 'overview-conns-sites.png') });
       report.screenshots.push('overview-conns-sites.png');
+      // The light theme is a first-class option here, and the chips sit on a
+      // coloured card: capture the same card there too.
+      await page.evaluate(() => setTheme('light'));
+      await page.waitForTimeout(150);
+      await page.locator('.metric.metric-conns').screenshot({ path: path.join(OUTPUT, 'overview-conns-sites-light.png') });
+      report.screenshots.push('overview-conns-sites-light.png');
+      await page.evaluate(() => setTheme('dark'));
       return chips;
     });
 

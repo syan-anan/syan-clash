@@ -322,14 +322,15 @@
     flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap;
     justify-content: flex-end; align-content: center; gap: 6px;
   }
+  /* The tag variables rather than a hand-picked pair, so the chips sit on the
+     coloured metric card in both themes without a second override. */
   .site-chip {
-    font-size: 11.5px; font-weight: 650; letter-spacing: .2px; color: var(--ink);
-    background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .16);
-    border-radius: 999px; padding: 3px 9px; max-width: 132px;
+    display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 650;
+    letter-spacing: .2px; color: var(--tag-gray-tx); background: var(--tag-gray-bg);
+    border: 1px solid var(--bd); border-radius: 99px; padding: 3px 10px; max-width: 132px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  html.light .site-chip { background: rgba(255, 255, 255, .6); border-color: rgba(255, 255, 255, .95); }
-  .site-chip.more { color: var(--sub); background: transparent; border-style: dashed; }
+  .site-chip.more { background: transparent; color: var(--dim); border-style: dashed; }
 
   /* ---------- controls ---------- */
   /* Reuse the surrounding surface blur instead of adding a layer per button. */
