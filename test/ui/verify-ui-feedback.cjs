@@ -136,15 +136,16 @@ async function main() {
 
     await record('\u7ad9\u70b9\u540d\u628a\u57df\u540d\u5f52\u4e00\u5230\u4eba\u8ba4\u5f97\u51fa\u7684\u540d\u5b57', async () => {
       const got = await page.evaluate(() => connSiteNames([
-        { host: 'a.b.com.cn' },
-        { host: 'x.example.co.uk' },
-        { host: 'Models.DEV.' },
-        { host: '140.82.114.25:443' },
+        { host: 'collector.github.com', upload: 50, download: 50 },
+        { host: 'github.githubassets.com' },
+        { host: 'badjs.weixinbridge.com', upload: 0, download: 40 },
+        { host: 'a.b.com.cn', upload: 0, download: 30 },
+        { host: 'x.example.co.uk', upload: 0, download: 20 },
+        { host: 'Models.DEV.', upload: 0, download: 10 },
+        { host: '140.82.114.25:443', upload: 0, download: 99 },
         { host: '' },
-        { host: 'collector.github.com', upload: 5, download: 5 },
-        { host: 'github.com', upload: 1, download: 1 },
       ]));
-      assert.deepEqual(got, ['GitHub', 'b.com.cn', 'example.co.uk', 'models.dev'], JSON.stringify(got));
+      assert.deepEqual(got, ['GitHub', '\u5fae\u4fe1', 'b.com.cn', 'example.co.uk', 'models.dev'], JSON.stringify(got));
       return got;
     });
 
