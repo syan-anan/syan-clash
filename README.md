@@ -16,8 +16,19 @@
 
 * 客户端配置、订阅列表、内核二进制与生成的配置都在 `lab\`（可换目录，见 `core.dir`）
 * 脚本的临时文件一律放 `lab\tmp\`
+* 界面回归测试放 `test\ui\`，随源码一起版本管理
 * 开机自启与系统代理是**显式开关**，默认关闭
 * 整个项目可以直接复制一个文件夹搬走
+
+## 测试
+
+    go test ./...                       # 全部 Go 单元测试
+    node test/ui/run-all.cjs            # 界面回归（Playwright，需 Chrome）
+
+`test\ui` 里每个 `verify-*.cjs` 自带 mock 控制台、互不依赖，跑完各自打印一行 JSON 结论，
+`run-all.cjs` 顺序执行并汇总。它们验证的是真实交互——点击、toast、虚拟列表滚动——而不是字符串匹配，
+所以界面改动被它挡住，比被单元测试挡住更早。需要时用 `CODEX_NODE_MODULES` 指定 playwright 位置、
+`CHROME_PATH` 指定浏览器。
 
 ## 分层
 
