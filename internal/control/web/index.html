@@ -312,6 +312,24 @@
   html.light .metric.ac3 { background: linear-gradient(135deg, rgba(150, 240, 228, .45), rgba(255, 255, 255, .42)); }
   html.light .metric.ac4 { background: linear-gradient(135deg, rgba(180, 240, 190, .45), rgba(255, 255, 255, .42)); }
   html.light .metric.ac5 { background: linear-gradient(135deg, rgba(196, 181, 253, .5), rgba(255, 255, 255, .42)); }
+  /* The active-connection card is the one metric with room to spare, so the
+     right half of it lists the sites being reached right now as small chips.
+     They are right-aligned and wrap, so a narrow window drops a chip onto the
+     next line instead of clipping the row. */
+  .metric.metric-conns { display: flex; align-items: center; gap: 14px; }
+  .metric-conns .metric-main { flex: 0 1 auto; min-width: 0; }
+  .metric-conns .conns-sites {
+    flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap;
+    justify-content: flex-end; align-content: center; gap: 6px;
+  }
+  .site-chip {
+    font-size: 11.5px; font-weight: 650; letter-spacing: .2px; color: var(--ink);
+    background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 999px; padding: 3px 9px; max-width: 132px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  html.light .site-chip { background: rgba(255, 255, 255, .6); border-color: rgba(255, 255, 255, .95); }
+  .site-chip.more { color: var(--sub); background: transparent; border-style: dashed; }
 
   /* ---------- controls ---------- */
   /* Reuse the surrounding surface blur instead of adding a layer per button. */
@@ -2163,6 +2181,7 @@ const state = {
   profile: null,
   proxies: null,
   coreConns: null,
+  coreSites: null,
   conns: [],
   connSource: "core",
   traffic: [],
@@ -2994,21 +3013,129 @@ const METRIC_CARDS = [
   ["上传速度", "ov-up", "ov-up-s"],
   ["总流量", "ov-total", "ov-total-s"],
 ];
-const METRIC_SKELETON = METRIC_CARDS.map(([label, id, sub], i) =>
-  '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(label) + '</div>' +
-  '<div class="v" id="' + id + '"></div><div class="s" id="' + sub + '"></div></div>').join("");
+/* The first card is the only metric with space to spare, so it carries the
+   site list on its right half: the label/number/sub block is wrapped in a
+   column of its own and the chips sit beside it. The other three keep the
+   original single-column card. */
+const METRIC_SKELETON = METRIC_CARDS.map(([label, id, sub], i) => {
+  const body = '<div class="k">' + esc(label) + '</div>' +
+    '<div class="v" id="' + id + '"></div><div class="s" id="' + sub + '"></div>';
+  if (i === 0) {
+    return '<div class="metric metric-conns ac1"><div class="metric-main">' + body +
+      '</div><div class="conns-sites" id="ov-conns-sites" hidden></div></div>';
+  }
+  return '<div class="metric ac' + (i % 5 + 1) + '">' + body + '</div>';
+}).join("");
 
 /* 仪表盘的「活跃连接」在内核模式下必须读内核自己的连接表：流量交给内核之后，
    内置引擎的注册表永远是 0，卡片就会一直显示 0 条。内核连接数单独轮询，
    /api/status 是 2.5 秒一次的热路径，不该每次都去拉整张连接表。 */
 async function refreshOverviewConns() {
   const running = runningCore();
-  if (!running || !running.clash_api) { state.coreConns = null; renderOverviewConns(); return; }
+  if (!running || !running.clash_api) { state.coreConns = null; state.coreSites = null; renderOverviewConns(); return; }
   try {
     const res = await api("/api/cores/connections?id=" + encodeURIComponent(running.id));
-    state.coreConns = (res.connections || []).length;
-  } catch (e) { state.coreConns = null; }
+    const rows = res.connections || [];
+    state.coreConns = rows.length;
+    state.coreSites = connSiteNames(rows);
+  } catch (e) { state.coreConns = null; state.coreSites = null; }
   renderOverviewConns();
+}
+
+/* Which sites the live connections are reaching. The core's table carries a
+   host per connection, not a product name, so the host is folded down here: a
+   suffix table for the domains people recognise at a glance, and the
+   registrable domain for everything else. A row whose host is empty (the core
+   resolved straight to an address) is dropped rather than shown as a number. */
+const CONN_SITE_ALIASES = [
+  ["githubusercontent.com", "GitHub"], ["githubassets.com", "GitHub"],
+  ["github.com", "GitHub"], ["github.io", "GitHub"],
+  ["linux.do", "L站"],
+  ["chatgpt.com", "ChatGPT"], ["openai.com", "OpenAI"],
+  ["anthropic.com", "Claude"], ["claude.ai", "Claude"],
+  ["huggingface.co", "Hugging Face"],
+  ["googleusercontent.com", "Google"], ["googleapis.com", "Google"],
+  ["gstatic.com", "Google"], ["google.com", "Google"],
+  ["googlevideo.com", "YouTube"], ["youtube.com", "YouTube"], ["ytimg.com", "YouTube"],
+  ["bing.com", "Bing"],
+  ["microsoft.com", "Microsoft"], ["live.com", "Microsoft"], ["office.com", "Microsoft"], ["msn.com", "Microsoft"],
+  ["apple.com", "Apple"], ["icloud.com", "Apple"],
+  ["cloudflare.com", "Cloudflare"], ["cloudflare-dns.com", "Cloudflare"],
+  ["jsdelivr.net", "jsDelivr"], ["unpkg.com", "unpkg"],
+  ["npmjs.com", "npm"], ["npmjs.org", "npm"], ["pypi.org", "PyPI"],
+  ["python.org", "Python"], ["crates.io", "Rust"], ["rust-lang.org", "Rust"],
+  ["golang.org", "Go"], ["go.dev", "Go"],
+  ["docker.com", "Docker"], ["docker.io", "Docker"],
+  ["stackoverflow.com", "Stack Overflow"], ["stackexchange.com", "Stack Overflow"],
+  ["medium.com", "Medium"], ["reddit.com", "Reddit"], ["redd.it", "Reddit"],
+  ["discord.com", "Discord"], ["discordapp.com", "Discord"],
+  ["telegram.org", "Telegram"], ["t.me", "Telegram"],
+  ["twitter.com", "X"], ["x.com", "X"], ["twimg.com", "X"],
+  ["wikipedia.org", "Wikipedia"], ["netflix.com", "Netflix"], ["spotify.com", "Spotify"],
+  ["twitch.tv", "Twitch"], ["linkedin.com", "LinkedIn"],
+  ["instagram.com", "Instagram"], ["facebook.com", "Facebook"], ["tiktok.com", "TikTok"],
+  ["amazonaws.com", "AWS"], ["amazon.com", "Amazon"],
+  ["vercel.com", "Vercel"], ["netlify.app", "Netlify"],
+  ["steampowered.com", "Steam"], ["steamcommunity.com", "Steam"], ["epicgames.com", "Epic"],
+  ["weixin.qq.com", "微信"], ["weixin.com", "微信"], ["qq.com", "QQ"],
+  ["zhihu.com", "知乎"], ["bilibili.com", "哔哩哔哩"], ["b23.tv", "哔哩哔哩"],
+  ["douyin.com", "抖音"], ["taobao.com", "淘宝"], ["tmall.com", "天猫"],
+  ["jd.com", "京东"], ["baidu.com", "百度"], ["weibo.com", "微博"],
+  ["aliyun.com", "阿里云"], ["alipay.com", "支付宝"], ["163.com", "网易"],
+  ["tencent.com", "腾讯"], ["feishu.cn", "飞书"], ["dingtalk.com", "钉钉"],
+  ["douban.com", "豆瓣"], ["juejin.cn", "掘金"],
+  ["gitee.com", "Gitee"], ["csdn.net", "CSDN"], ["wps.cn", "WPS"], ["wps.com", "WPS"],
+].sort((a, b) => b[0].length - a[0].length);
+
+/* Second-level suffixes that are part of the public suffix, so the registrable
+   domain of a.b.com.cn is b.com.cn and not com.cn. */
+const CONN_MULTI_LABEL_TLDS = [
+  "co.uk", "org.uk", "ac.uk", "gov.uk", "com.cn", "net.cn", "org.cn", "gov.cn",
+  "com.hk", "com.tw", "com.au", "co.jp", "com.br", "com.sg", "co.kr", "com.mx",
+  "com.tr", "co.in", "com.ru", "com.my", "com.vn", "co.id", "com.ph", "com.ua",
+  "co.za", "co.th", "co.il",
+];
+const CONN_SITE_LIMIT = 6;
+
+function connSiteAlias(host) {
+  for (const [domain, name] of CONN_SITE_ALIASES) {
+    if (host === domain || host.endsWith("." + domain)) return name;
+  }
+  return "";
+}
+
+function connRegistrableDomain(host) {
+  const parts = host.split(".");
+  if (parts.length <= 2) return host;
+  const tail = parts.slice(-2).join(".");
+  if (CONN_MULTI_LABEL_TLDS.indexOf(tail) >= 0) return parts.slice(-3).join(".");
+  return tail;
+}
+
+function connSiteName(host) {
+  const h = String(host || "").trim().toLowerCase().replace(/\.+$/, "");
+  if (!h) return "";
+  // A bare address or a host:port is not a site name.
+  if (h.indexOf(":") >= 0 || /^[0-9.]+$/.test(h)) return "";
+  return connSiteAlias(h) || connRegistrableDomain(h);
+}
+
+/* One entry per site, heaviest first. The name carries the traffic of every
+   connection that landed on it, so a page pulling from a dozen hosts still
+   reads as one chip. */
+function connSiteNames(rows) {
+  const byName = new Map();
+  for (const row of rows) {
+    const name = connSiteName(row && row.host);
+    if (!name) continue;
+    const bytes = Number(row.upload || 0) + Number(row.download || 0);
+    const seen = byName.get(name);
+    if (seen) { seen.bytes += bytes; seen.count += 1; }
+    else byName.set(name, { name: name, bytes: bytes, count: 1 });
+  }
+  return Array.from(byName.values())
+    .sort((a, b) => (b.bytes - a.bytes) || (b.count - a.count) || a.name.localeCompare(b.name))
+    .map((s) => s.name);
 }
 
 function renderOverviewConns() {
@@ -3018,6 +3145,27 @@ function renderOverviewConns() {
   const live = typeof state.coreConns === "number" ? state.coreConns : null;
   setText(el, (live == null ? st.active_conns : live) + " 条");
   setText(document.getElementById("ov-conns-s"), live == null ? "累计 " + st.total_conns + " 条" : "内核实时");
+  renderOverviewSites();
+}
+
+/* The chips are rewritten only when the list actually changes: the poll runs
+   every three seconds, and rebuilding identical spans on every tick is what
+   makes a card blink. */
+function renderOverviewSites() {
+  const box = document.getElementById("ov-conns-sites");
+  if (!box) return;
+  const sites = state.coreSites || [];
+  const shown = sites.slice(0, CONN_SITE_LIMIT);
+  const extra = sites.length - shown.length;
+  const sig = shown.join("|") + "#" + extra;
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  if (!shown.length) { box.hidden = true; box.textContent = ""; return; }
+  box.hidden = false;
+  let html = "";
+  for (const name of shown) html += '<span class="site-chip">' + esc(name) + "</span>";
+  if (extra > 0) html += '<span class="site-chip more">+' + extra + "</span>";
+  box.innerHTML = html;
 }
 
 function renderOverview() {

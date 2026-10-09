@@ -42,7 +42,15 @@ async function record(name, action) {
   catch (error) { report.checks.push({ name, pass: false, error: error.message }); console.log('FAIL ' + name + ': ' + error.message); }
 }
 
-const CONNS = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: 'c' + n, host: 'h' + n, destination: 'd' + n, network: 'tcp' }));
+const CONNS = [
+  { id: 'c1', host: 'collector.github.com', destination: 'collector.github.com:443', upload: 100, download: 900, network: 'tcp' },
+  { id: 'c2', host: 'chatgpt.com', destination: 'chatgpt.com:443', upload: 200, download: 800, network: 'tcp' },
+  { id: 'c3', host: 'raw.githubusercontent.com', destination: 'raw.githubusercontent.com:443', upload: 100, download: 700, network: 'tcp' },
+  { id: 'c4', host: 'linux.do', destination: 'linux.do:443', upload: 100, download: 600, network: 'tcp' },
+  { id: 'c5', host: 'cn.bing.com', destination: 'cn.bing.com:443', upload: 100, download: 500, network: 'tcp' },
+  { id: 'c6', host: 'optimizationguide-pa.googleapis.com', destination: 'optimizationguide-pa.googleapis.com:443', upload: 100, download: 400, network: 'tcp' },
+  { id: 'c7', host: '', destination: '140.82.114.25:443', upload: 100, download: 100, network: 'tcp' },
+];
 
 async function main() {
   await record('Inline JavaScript syntax', () => {
@@ -114,6 +122,30 @@ async function main() {
       const asked = report.requests.filter((r) => r.path === '/api/cores/connections');
       assert.ok(asked.length >= 1, 'the core connection table was never read');
       return { text: await page.locator('#ov-conns').innerText(), sub, hits: asked.length };
+    });
+
+    await record('\u6d3b\u8dc3\u8fde\u63a5\u5361\u7247\u53f3\u4fa7\u5217\u51fa\u6b63\u5728\u8bbf\u95ee\u7684\u7ad9\u70b9', async () => {
+      const chips = await page.evaluate(() => Array.from(document.querySelectorAll('#ov-conns-sites .site-chip')).map((el) => el.textContent.trim()));
+      assert.deepEqual(chips, ['GitHub', 'ChatGPT', 'L\u7ad9', 'Bing', 'Google'], JSON.stringify(chips));
+      const hidden = await page.locator('#ov-conns-sites').evaluate((el) => el.hidden);
+      assert.equal(hidden, false, 'the site list must be visible when there are sites');
+      await page.locator('.metric.metric-conns').screenshot({ path: path.join(OUTPUT, 'overview-conns-sites.png') });
+      report.screenshots.push('overview-conns-sites.png');
+      return chips;
+    });
+
+    await record('\u7ad9\u70b9\u540d\u628a\u57df\u540d\u5f52\u4e00\u5230\u4eba\u8ba4\u5f97\u51fa\u7684\u540d\u5b57', async () => {
+      const got = await page.evaluate(() => connSiteNames([
+        { host: 'a.b.com.cn' },
+        { host: 'x.example.co.uk' },
+        { host: 'Models.DEV.' },
+        { host: '140.82.114.25:443' },
+        { host: '' },
+        { host: 'collector.github.com', upload: 5, download: 5 },
+        { host: 'github.com', upload: 1, download: 1 },
+      ]));
+      assert.deepEqual(got, ['GitHub', 'b.com.cn', 'example.co.uk', 'models.dev'], JSON.stringify(got));
+      return got;
     });
 
     await record('\u5237\u65b0\u6309\u94ae\u5148\u8f6c\u5708\uff0c\u62ff\u5230\u7ed3\u679c\u518d\u590d\u539f\u5e76\u63d0\u793a', async () => {
