@@ -93,14 +93,14 @@ func (a *App) StartProcessSampler(ctx context.Context, every time.Duration) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				id := a.Config().Core.ID
-				if id == "" {
-					continue
-				}
-				if _, err := a.seenProcesses(ctx, id); err != nil {
+				a.guardTick("进程采样", func() {
+					id := a.Config().Core.ID
+					if id == "" {
+						return
+					}
 					// Not running or no control API: nothing to sample.
-					continue
-				}
+					_, _ = a.seenProcesses(ctx, id)
+				})
 			}
 		}
 	}()

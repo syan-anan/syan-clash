@@ -555,7 +555,16 @@ func (p *Prober) probeCNPlace(ctx context.Context, via Via, ip string) (cnPlace,
 			Local   string `json:"local"`
 		} `json:"data"`
 	}
-	if err := p.getJSON(ctx, via, urlCNPlace+ip, &out); err != nil {
+	// The service drops a connection now and then (a TLS EOF every fourth or
+	// fifth call in testing); one retry is what turns a flaky answer into a
+	// reliable one.
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		if err = p.getJSON(ctx, via, urlCNPlace+ip, &out); err == nil {
+			break
+		}
+	}
+	if err != nil {
 		return cnPlace{}, false
 	}
 	if out.Code != 0 {

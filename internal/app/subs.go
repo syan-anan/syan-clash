@@ -507,7 +507,9 @@ func (a *App) StartSubscriptionScheduler(ctx context.Context, every time.Duratio
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if n := a.RefreshDueSubscriptions(ctx); n > 0 {
+				var n int
+				a.guardTick("订阅自动更新", func() { n = a.RefreshDueSubscriptions(ctx) })
+				if n > 0 {
 					a.log.Infof("自动更新订阅：%d 个", n)
 				}
 			}

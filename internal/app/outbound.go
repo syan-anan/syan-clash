@@ -86,7 +86,7 @@ func (a *App) StartCoreNodeWatcher(ctx context.Context, every time.Duration) {
 		ticker := time.NewTicker(every)
 		defer ticker.Stop()
 		for {
-			a.refreshCoreLink(ctx)
+			a.guardTick("节点跟随", func() { a.refreshCoreLink(ctx) })
 			select {
 			case <-ctx.Done():
 				a.node.set("")

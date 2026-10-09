@@ -19,33 +19,34 @@ import (
 // without a kernel and without a network, which is exactly why the logic lives
 // outside the sweep.
 
-// 旧的判定把「服务要求凭据」当成「可用」，用户明确否掉了这套：网络通不等于能用。
-// 现在只有带登录态真的拿到数据才是 ok（绿），其余按四档标注。
-func TestClassifyChatGPTSession(t *testing.T) {
+func TestClassifyChatGPT(t *testing.T) {
 	cases := []struct {
 		name   string
 		status int
 		body   string
 		want   string
 	}{
-		{"带登录态拿到会话才是绿", 200, `{"user":{"id":"u"},"accessToken":"eyJhbGci"`, diag.AICheckOK},
-		{"匿名会话是黄绿", 200, `{"WARNING_BANNER":"do not share"`, diag.AICheckNoLogin},
-		{"401 只是没凭据", 401, `{"detail":"Unauthorized"}`, diag.AICheckNoLogin},
+		{"带登录态拿到会话是绿", 200, `{"user":{"id":"u"},"accessToken":"eyJhbGci"`, diag.AICheckOK},
+		{"匿名会话同样是绿", 200, `{"WARNING_BANNER":"do not share"`, diag.AICheckOK},
+		{"首页回来了也是绿", 200, `<!DOCTYPE html><html lang="en-US"><head>`, diag.AICheckOK},
+		{"401 只是没凭据", 401, `{"detail":"Unauthorized"}`, diag.AICheckOK},
 		{"403 地区不支持是红", 403, `{"error":{"message":"Country, region, or territory not supported"}}`, diag.AICheckRegion},
-		{"403 风控挑战是黄", 403, `<html><title>Just a moment...</title>`, diag.AICheckRisk},
+		{"403 托管挑战算站点可达", 403, `<html><title>Just a moment...</title><script>window._cf_chl_opt={cType:"managed"}</script>`, diag.AICheckOK},
+		{"403 硬封禁是黄", 403, `<html><title>Attention Required! | Cloudflare</title> Error 1020`, diag.AICheckRisk},
 		{"429 限流是黄", 429, `rate limited`, diag.AICheckRisk},
-		{"500 服务端错误", 500, `{"error":{"message":"internal"}}`, diag.AICheckBlocked},
+		{"500 落在已知形态之外", 500, `{"error":{"message":"internal"}}`, diag.AICheckBlocked},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, _ := diag.ClassifyChatGPTSession(tc.status, tc.body); got != tc.want {
-				t.Fatalf("ClassifyChatGPTSession(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
+			if got, _ := diag.ClassifyChatGPT(tc.status, tc.body, ""); got != tc.want {
+				t.Fatalf("ClassifyChatGPT(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
 			}
 		})
 	}
 }
 
-// The API host answers JSON, so it is judged on its own bodies.
+// The API host answers JSON, so it is judged on its own bodies. A missing key is
+// green: the region answered, and that is what the page is asking about.
 func TestClassifyGeminiAPI(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -53,17 +54,17 @@ func TestClassifyGeminiAPI(t *testing.T) {
 		body   string
 		want   string
 	}{
-		{"403 缺 key 是黄绿", 403, `{"error":{"code":403,"message":"Method doesn't allow unregistered callers (callers without established identity). Please use API Key."}}`, diag.AICheckNoLogin},
+		{"403 缺 key 是绿（地区答了）", 403, `{"error":{"code":403,"message":"Method doesn't allow unregistered callers (callers without established identity). Please use API Key."}}`, diag.AICheckOK},
 		{"400 地区不支持是红", 400, `{"error":{"code":400,"message":"User location is not supported for the API use."}}`, diag.AICheckRegion},
-		{"400 API key not valid 是黄绿", 400, `{"error":{"code":400,"message":"API key not valid. Please pass a valid API key."}}`, diag.AICheckNoLogin},
-		{"200 带模型列表才是绿", 200, `{"models":[{"name":"models/gemini-2.5-pro"}]}`, diag.AICheckOK},
-		{"200 不是模型列表只能算黄绿", 200, `{"ok":true}`, diag.AICheckNoLogin},
-		{"500 服务端错误", 500, `{"error":{"message":"backend error"}}`, diag.AICheckBlocked},
+		{"400 API key not valid 是绿", 400, `{"error":{"code":400,"message":"API key not valid. Please pass a valid API key."}}`, diag.AICheckOK},
+		{"200 带模型列表是绿", 200, `{"models":[{"name":"models/gemini-2.5-pro"}]}`, diag.AICheckOK},
+		{"200 不带模型列表也是绿", 200, `{"ok":true}`, diag.AICheckOK},
+		{"500 落在已知形态之外", 500, `{"error":{"message":"backend error"}}`, diag.AICheckBlocked},
 		{"429 限流是黄", 429, `quota exceeded`, diag.AICheckRisk},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, _ := diag.ClassifyGeminiAPI(tc.status, tc.body); got != tc.want {
+			if got, _ := diag.ClassifyGeminiAPI(tc.status, tc.body, ""); got != tc.want {
 				t.Fatalf("ClassifyGeminiAPI(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
 			}
 		})
@@ -71,7 +72,8 @@ func TestClassifyGeminiAPI(t *testing.T) {
 }
 
 // The page a person opens is judged separately: without a session it is a
-// sign-in page, which is 黄绿 and never 绿.
+// sign-in page, and a sign-in page is green - the region is served, only the
+// account is missing.
 func TestClassifyGeminiApp(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -79,38 +81,69 @@ func TestClassifyGeminiApp(t *testing.T) {
 		body   string
 		want   string
 	}{
-		{"登录页是黄绿", 200, `<html>Sign in - Google Accounts</html>`, diag.AICheckNoLogin},
+		{"登录页是绿", 200, `<html>Sign in - Google Accounts</html>`, diag.AICheckOK},
 		{"地区不支持是红", 200, `Gemini is not available in your country`, diag.AICheckRegion},
 		{"风控挑战是黄", 403, `<html><title>Just a moment...</title>`, diag.AICheckRisk},
 		{"429 限流是黄", 429, `too many requests`, diag.AICheckRisk},
-		{"其它状态码判 blocked", 502, `bad gateway`, diag.AICheckBlocked},
+		{"其它状态算 blocked", 502, `bad gateway`, diag.AICheckBlocked},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, _ := diag.ClassifyGeminiApp(tc.status, tc.body); got != tc.want {
+			if got, _ := diag.ClassifyGeminiApp(tc.status, tc.body, ""); got != tc.want {
 				t.Fatalf("ClassifyGeminiApp(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
 			}
 		})
 	}
 }
 
-// Two probes, one service: the worse answer wins, because one blocked path
+// AI Studio is the login-free region test: both answers arrive as 200, so the
+// final URL is the only thing that separates "region is served" from "region is
+// not served".
+func TestClassifyAIStudio(t *testing.T) {
+	const signIn = "https://accounts.google.com/v3/signin/identifier?continue=https://aistudio.google.com/prompts/new_chat"
+	const blocked = "https://aistudio.google.com/docs/available-regions"
+	cases := []struct {
+		name     string
+		status   int
+		body     string
+		finalURL string
+		want     string
+	}{
+		{"跳登录页=地区可用", 200, `<html>Sign in</html>`, signIn, diag.AICheckOK},
+		{"跳 available-regions=地区不支持", 200, `<html>Available regions</html>`, blocked, diag.AICheckRegion},
+		{"available-regions 带查询串也是红", 200, `<html>regions</html>`, blocked + "?hl=en", diag.AICheckRegion},
+		{"留在 aistudio 也是绿", 200, `<html>AI Studio</html>`, "https://aistudio.google.com/prompts/new_chat", diag.AICheckOK},
+		{"风控挑战是黄", 403, `<html><title>Just a moment...</title>`, "", diag.AICheckRisk},
+		{"429 限流是黄", 429, `slow down`, "", diag.AICheckRisk},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, _ := diag.ClassifyAIStudio(tc.status, tc.body, tc.finalURL); got != tc.want {
+				t.Fatalf("ClassifyAIStudio(%d, %q, %q) = %q, want %q", tc.status, tc.body, tc.finalURL, got, tc.want)
+			}
+		})
+	}
+}
+
+// Three probes, one service: the worse answer wins, because one blocked path
 // means the service is not usable from that node.
 func TestGeminiCombinationTakesTheWorse(t *testing.T) {
-	api, _ := diag.ClassifyGeminiAPI(200, `{"models":[{"name":"models/gemini-2.5-pro"}]}`)
-	app, _ := diag.ClassifyGeminiApp(200, `<html>Sign in - Google Accounts</html>`)
-	if api != diag.AICheckOK || app != diag.AICheckNoLogin {
-		t.Fatalf("fixtures drifted: api=%q app=%q", api, app)
+	app, _ := diag.ClassifyGeminiApp(200, `<html>Sign in - Google Accounts</html>`, "")
+	api, _ := diag.ClassifyGeminiAPI(200, `{"models":[{"name":"models/gemini-2.5-pro"}]}`, "")
+	studio, _ := diag.ClassifyAIStudio(200, `<html>Sign in</html>`, "https://accounts.google.com/v3/signin/x")
+	if app != diag.AICheckOK || api != diag.AICheckOK || studio != diag.AICheckOK {
+		t.Fatalf("fixtures drifted: studio=%q api=%q app=%q", studio, api, app)
 	}
-	if aiRank(app) <= aiRank(api) {
-		t.Fatalf("the sign-in page must be the worse answer: api=%d app=%d", aiRank(api), aiRank(app))
-	}
-	blocked, _ := diag.ClassifyGeminiAPI(400, `{"error":{"message":"User location is not supported for the API use."}}`)
+	blocked, _ := diag.ClassifyAIStudio(200, `<html>regions</html>`, "https://aistudio.google.com/docs/available-regions")
 	if blocked != diag.AICheckRegion {
 		t.Fatalf("region fixture drifted: %q", blocked)
 	}
-	if aiRank(blocked) <= aiRank(app) {
-		t.Fatal("a region block must outrank a sign-in page")
+	if aiRank(blocked) <= aiRank(studio) {
+		t.Fatal("a region block must outrank a usable region")
+	}
+	risk, _ := diag.ClassifyGeminiApp(403, `<html><title>Just a moment...</title>`, "")
+	if aiRank(risk) <= aiRank(studio) {
+		t.Fatal("a challenge must outrank a usable region")
 	}
 }
 
@@ -120,18 +153,16 @@ func aiRank(status string) int {
 	switch status {
 	case diag.AICheckOK:
 		return 0
-	case diag.AICheckNoLogin:
-		return 1
 	case diag.AICheckRisk:
-		return 2
+		return 1
 	case diag.AICheckRegion:
-		return 3
+		return 2
 	case diag.AICheckBlocked:
-		return 4
+		return 3
 	case diag.AICheckTimeout:
-		return 5
+		return 4
 	default:
-		return 6
+		return 5
 	}
 }
 

@@ -44,7 +44,7 @@ import (
 // defaults are what a plain "go build" leaves behind, which is why an empty
 // stamp is allowed all the way through to the about card.
 var (
-	version     = "0.1.3"
+	version     = "0.1.6"
 	buildStamp  = ""
 	buildCommit = ""
 )

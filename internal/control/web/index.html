@@ -692,12 +692,16 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
 
   .dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
   .dash-slot { display: contents; }
-  .dash-card { display: flex; align-items: center; gap: 14px; margin-bottom: 0; min-height: 96px; }
-  .dash-card .dash-k { min-width: 0; }
-  .dash-card .dash-k .t { font-size: 13.5px; font-weight: 700; }
+  /* flex-wrap is what keeps the label readable: when the right-hand controls no
+     longer fit beside it, they drop to a second line instead of squeezing the
+     title into a one-character-wide column. */
+  .dash-card { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 0; min-height: 96px; }
+  .dash-card .dash-k { min-width: 0; flex: 1 1 auto; }
+  .dash-card .dash-k .t { font-size: 13.5px; font-weight: 700; white-space: nowrap; }
   .dash-card .dash-k .d { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.45; }
-  .dash-card .dash-right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
-  .dash-card .dash-acts { display: flex; align-items: center; gap: 10px; }
+  .dash-card .dash-right { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 0 1 auto; flex-wrap: wrap; }
+  .dash-card .dash-acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dash-card .seg { flex: 0 0 auto; }
   .dash-card .dash-col { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; min-width: 0; }
   .dash-card.dash-wide { grid-column: 1 / -1; }
   .dash-card .dash-v.masked { letter-spacing: 1px; }
@@ -797,6 +801,9 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
     transition: border-color .15s ease, background .15s ease, opacity .15s ease;
   }
   .node-card.switching { opacity: .6; }
+/* No path to the current exit: the card says so before the click, not after. */
+.node-card.nc-dead { opacity: .55; border-style: dashed; }
+.node-card.nc-dead:hover { opacity: .8; }
   .node-card:hover { border-color: var(--bd); background: var(--hover); }
   .node-card.row-sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .nc-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -1773,7 +1780,8 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
         <div class="toolbar">
           <select id="ai-group" style="max-width:190px" title="测哪个组的节点"><option value="">默认组</option></select>
           <div class="seg" id="ai-tabs">
-            <button data-tab="both" class="active">双通过</button>
+            <button data-tab="all" class="active">全部</button>
+            <button data-tab="both">双通过</button>
             <button data-tab="chatgpt">仅 ChatGPT</button>
             <button data-tab="gemini">仅 Gemini</button>
           </div>
@@ -1783,7 +1791,7 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
           <span class="muted" id="ai-msg" style="font-size:12.5px"></span>
         </div>
         <div class="card">
-          <h3>登录态实测 <span class="hint">想让绿档可信，先在内嵌窗口里登录一次</span></h3>
+          <h3>登录态实测（可选） <span class="hint">不登录也能判可用性，登录后只是多一条真会话证据</span></h3>
           <div class="row tight">
             <button class="btn" id="ai-login-chatgpt">登录 ChatGPT</button>
             <button class="btn" id="ai-login-gemini">登录 Gemini</button>
@@ -1797,10 +1805,11 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
             <span class="badge" id="ai-best-badge"></span>
           </div>
           <p class="muted" style="font-size:12.5px;margin:10px 0 0">
-            检测的是真接口：ChatGPT 走 <code>chatgpt.com/api/auth/session</code> + Cloudflare <code>cdn-cgi/trace</code>（拿到真实出口 IP 与 colo），
-            Gemini 走 <code>gemini.google.com/app</code> 与 <code>generativelanguage.googleapis.com</code>。
-            <strong>绿=带登录态真的拿到数据</strong>；<strong>黄绿=IP 没被封但没登录</strong>，只证明网络通，不代表账号能用；
-            黄=风控拦截，红=地区不支持。每格的悬停提示里有状态码、命中关键字、出口 IP 与检测时间，可以复核。
+            每个节点依次探测真接口：ChatGPT 走 <code>chatgpt.com</code> 首页与 <code>/api/auth/session</code>（站点能从该出口打开就算可用——Cloudflare 的托管挑战交给浏览器自证，内置登录窗口就是浏览器）；
+            Gemini 走 <code>aistudio.google.com/prompts/new_chat</code>（跳转到 <code>docs/available-regions</code> 就是地区不可用）、
+            <code>gemini.google.com/app</code> 与 <code>generativelanguage.googleapis.com</code>。
+            <strong>可用=服务从该出口可达、地区受支持，不需要登录</strong>；<strong>需过验证=被硬封禁或限流</strong>；
+            地区不支持=服务明确拒绝该地区。每格的悬停提示里有状态码、命中关键字、最终地址、出口 IP 与检测时间，可以复核。
           </p>
           <div id="ai-body" style="margin-top:12px;overflow:auto"><span class="muted">尚未检测</span></div>
         </div>
@@ -2433,6 +2442,7 @@ function setHTML(el, html, key) {
   return true;
 }
 function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+function setClass(el, cls) { if (el && el.className !== cls) el.className = cls; }
 function runningCore() { return state.cores.find((c) => c.running); }
 /* The dashboard cards read the newest traffic sample, the same one the topbar
    speed pill shows, so the two can never disagree. */
@@ -2569,7 +2579,7 @@ function tickUptime() {
   const side = $("#side-state");
   if (side && state.status) side.textContent = "运行中 · " + fmtUptime(uptimeSeconds());
 }
-setInterval(tickUptime, 1000);
+setInterval(() => { if (!document.hidden) tickUptime(); }, 1000);
 
 function fmtTime(value) {
   const d = new Date(value);
@@ -2929,7 +2939,7 @@ async function refreshStatus() {
     const st = await api("/api/status");
     state.status = st;
     window.__syanStatus = "ok";
-    $("#side-dot").className = "dot on";
+    setClass($("#side-dot"), "dot on");
     uptimeBase = { sec: st.uptime_sec || 0, at: Date.now() };
     $("#side-state").textContent = "运行中 · " + fmtUptime(st.uptime_sec);
     $("#brand-ver").textContent = "v" + st.version;
@@ -2947,7 +2957,7 @@ async function refreshStatus() {
     renderOverview();
   } catch (e) {
     window.__syanStatus = "fail";
-    $("#side-dot").className = "dot off";
+    setClass($("#side-dot"), "dot off");
     $("#side-state").textContent = "控制台未响应";
   }
 }
@@ -2971,6 +2981,18 @@ function renderRuntimeMetrics(st) {
   setHTML(box, rows.length ? '<div class="card"><h3>运行指标</h3>' + rows.join("") + "</div>" : "");
 }
 
+/* The dashboard metrics: the labels never change, so the skeleton is rendered
+   once and only the numbers are written afterwards. */
+const METRIC_CARDS = [
+  ["活跃连接", "ov-conns", "ov-conns-s"],
+  ["下载速度", "ov-down", "ov-down-s"],
+  ["上传速度", "ov-up", "ov-up-s"],
+  ["总流量", "ov-total", "ov-total-s"],
+];
+const METRIC_SKELETON = METRIC_CARDS.map(([label, id, sub], i) =>
+  '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(label) + '</div>' +
+  '<div class="v" id="' + id + '"></div><div class="s" id="' + sub + '"></div></div>').join("");
+
 function renderOverview() {
   const st = state.status;
   if (!st) return;
@@ -2980,22 +3002,26 @@ function renderOverview() {
   const activeSOCKS = st.active_socks || st.socks5_addr || "-";
   // The fourth element is an optional element id: the uptime is rewritten by
   // the one-second ticker without re-rendering the whole card.
+  // The four cards are built once and then written in place. Their numbers move
+  // every second, and baking them into the markup meant the whole block was
+  // rebuilt on every status poll - which threw away the DOM (and any text
+  // selection inside it) four times a minute for no visible difference.
+  setHTML($("#overview-metrics"), METRIC_SKELETON, "metrics");
+  const metric = (id) => document.getElementById(id);
   const sample = lastTrafficSample();
-  const metrics = [
-    ["活跃连接", st.active_conns + " 条", "累计 " + st.total_conns + " 条", "ov-conns"],
-    ["下载速度", fmtSpeed(sample.down), "总计 " + fmtBytes(state.totalDown), "ov-down"],
-    ["上传速度", fmtSpeed(sample.up), "总计 " + fmtBytes(state.totalUp), "ov-up"],
-    ["总流量", fmtBytes(state.totalDown + state.totalUp), "当前节点 " + core, "ov-total"],
-  ];
-  setHTML($("#overview-metrics"), metrics.map(([k, v, s, id], i) => (
-    '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(k) + '</div><div class="v" id="' +
-    id + '">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"
-  )).join(""), "metrics");
+  setText(metric("ov-conns"), st.active_conns + " 条");
+  setText(metric("ov-conns-s"), "累计 " + st.total_conns + " 条");
+  setText(metric("ov-down"), fmtSpeed(sample.down));
+  setText(metric("ov-down-s"), "总计 " + fmtBytes(state.totalDown));
+  setText(metric("ov-up"), fmtSpeed(sample.up));
+  setText(metric("ov-up-s"), "总计 " + fmtBytes(state.totalUp));
+  setText(metric("ov-total"), fmtBytes(state.totalDown + state.totalUp));
+  setText(metric("ov-total-s"), "当前节点 " + core);
 
   const running = runningCore();
   const stateBadge = $("#ov-state");
   if (stateBadge) {
-    stateBadge.className = "badge" + (running ? " ok" : "");
+    setClass(stateBadge, "badge" + (running ? " ok" : ""));
     setText(stateBadge, running ? "运行中" : "未运行");
   }
   setText($("#ov-sub"), state.nodeSub || "未选择订阅");
@@ -3042,6 +3068,12 @@ const delayCache = (() => {
   } catch (e) { return {}; }
 })();
 
+/* delayFresh marks the entries a test in this session just wrote. A number the
+   user just measured has to beat the core's own cached one, which can be older
+   than the test they are looking at - otherwise a fresh 185 ms stays hidden
+   behind a stale 560 ms. */
+const delayFresh = new Set();
+
 function rememberDelays(map) {
   if (!map) return;
   let changed = false;
@@ -3049,6 +3081,7 @@ function rememberDelays(map) {
     const n = Number(ms);
     if (!name || !isFinite(n) || n <= 0) continue;
     delayCache[name] = Math.round(n);
+    delayFresh.add(name);
     changed = true;
   }
   if (!changed) return;
@@ -3058,6 +3091,7 @@ function rememberDelays(map) {
 /* delayFor answers "how fast is this thing" for a node or a group: the core's
    own number wins, then the last measurement we recorded. */
 function delayFor(name, fromCore) {
+  if (delayFresh.has(name) && delayCache[name]) return delayCache[name];
   if (fromCore) return fromCore;
   return delayCache[name] || 0;
 }
@@ -3095,7 +3129,7 @@ function renderOverviewProxy() {
     setText($("#ov-node-sub"), "分组 " + info.group + " ｜ 入口 " + (st.active_http || "-") +
       " ｜ " + measured);
     if (badge) {
-      badge.className = "badge " + (info.delay ? (info.delay < 150 ? "direct" : info.delay < 400 ? "warn" : "reject") : "");
+      setClass(badge, "badge " + (info.delay ? (info.delay < 150 ? "direct" : info.delay < 400 ? "warn" : "reject") : ""));
       setText(badge, info.delay ? info.delay + " ms" : "未测速");
       badge.title = info.nodeDelay ? "该节点的测速结果" : info.groupDelay ? "该分组整体的测速结果（不是这一个节点）" : "还没有测速结果";
     }
@@ -3104,7 +3138,7 @@ function renderOverviewProxy() {
   setText(nodeEl, running ? "内核 " + running.name : "内置引擎");
   setText($("#ov-node-sub"), "入口 " + (st.active_http || "-") +
     (running ? " ｜ 正在读取节点表" : " ｜ 到「内核」页启动一个内核后即可选择节点"));
-  if (badge) { badge.className = "badge"; setText(badge, "未测速"); }
+  if (badge) { setClass(badge, "badge"); setText(badge, "未测速"); }
 }
 
 /* 仪表盘上的开关是标题栏那两个开关的第二个视图：这里只转发，不另存一份状态。 */
@@ -3139,6 +3173,11 @@ $("#ov-test").onclick = async () => {
       "&name=" + encodeURIComponent(info.group) + "&timeout=5000");
     const entries = Object.entries(res.delays || {}).sort((a, b) => a[1] - b[1]);
     rememberDelays(res.delays || {});
+    // 分组测速测的就是这个组当前选中的那个节点，所以它的数字同时也是当前节点的
+    // 数字；否则卡片会一直显示更早的那次单节点结果。
+    if (info && info.node && res.delays && res.delays[info.group] != null) {
+      rememberDelays({ [info.node]: res.delays[info.group] });
+    }
     if (entries.length) toast("测速完成：" + entries[0][0] + " " + entries[0][1] + " ms", "ok");
     else toast("测速完成，但没有节点响应", "err");
     await refreshProxies();
@@ -3287,6 +3326,25 @@ $("#ov-restart").onclick = async (e) => {
    is only resized when the layout really changed. Doing both on every tick made
    the chart (and the window) visibly busy. */
 let chartQueued = false;
+/* Both charts are redrawn on a timer, and getComputedStyle forces a style
+   recalculation every time it is called. The palette only changes when the
+   theme does, so it is read once and dropped in applyTheme. */
+var chartPalette = null;
+function chartColors() {
+  if (!chartPalette) {
+    const styles = getComputedStyle(document.body);
+    const read = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+    chartPalette = {
+      accent: read("--accent", "#6b93ff"),
+      ok: read("--ok", "#3fd99b"),
+      line: read("--line", "#232b3d"),
+      faint: read("--faint", "#5f6b83"),
+      mono: read("--mono", "monospace"),
+    };
+  }
+  return chartPalette;
+}
+
 function drawChart(sel) {
   if (chartQueued) return;
   chartQueued = true;
@@ -3310,11 +3368,7 @@ function drawChartNow(sel) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const styles = getComputedStyle(document.body);
-  const accent = styles.getPropertyValue("--accent").trim() || "#6b93ff";
-  const ok = styles.getPropertyValue("--ok").trim() || "#3fd99b";
-  const line = styles.getPropertyValue("--line").trim() || "#232b3d";
-  const faint = styles.getPropertyValue("--faint").trim() || "#5f6b83";
+  const { accent, ok, line, faint, mono } = chartColors();
 
   ctx.strokeStyle = line;
   ctx.lineWidth = 1;
@@ -3359,7 +3413,7 @@ function drawChartNow(sel) {
     ctx.fill();
   }
 
-  ctx.font = "11px " + (styles.getPropertyValue("--mono") || "monospace");
+  ctx.font = "11px " + mono;
   ctx.textAlign = "left";
   ctx.fillStyle = ok; ctx.fillText("● 下行", 8, 14);
   const w1 = ctx.measureText("● 下行").width;
@@ -3384,15 +3438,19 @@ async function refreshTraffic() {
     if (sample) {
       state.traffic.push({ up: sample.up || 0, down: sample.down || 0 });
       if (state.traffic.length > 90) state.traffic.shift();
-      $("#speed-up").textContent = fmtSpeed(sample.up || 0);
-      $("#speed-down").textContent = fmtSpeed(sample.down || 0);
-      $("#traffic-total-up").textContent = fmtBytes(state.totalUp);
-      $("#traffic-total-down").textContent = fmtBytes(state.totalDown);
+      // setText, not textContent: an identical string still costs a DOM write
+      // and a style invalidation, and this runs once a second.
+      setText($("#speed-up"), fmtSpeed(sample.up || 0));
+      setText($("#speed-down"), fmtSpeed(sample.down || 0));
+      setText($("#traffic-total-up"), fmtBytes(state.totalUp));
+      setText($("#traffic-total-down"), fmtBytes(state.totalDown));
       // getElementById: the three traffic cards are built by renderOverview at
       // runtime, so the console's static id check cannot see them.
       setText(document.getElementById("ov-down"), fmtSpeed(sample.down || 0));
       setText(document.getElementById("ov-up"), fmtSpeed(sample.up || 0));
       setText(document.getElementById("ov-total"), fmtBytes(state.totalUp + state.totalDown));
+      setText(document.getElementById("ov-down-s"), "总计 " + fmtBytes(state.totalDown));
+      setText(document.getElementById("ov-up-s"), "总计 " + fmtBytes(state.totalUp));
       drawChart();
       if ($("#page-conns").classList.contains("active")) drawChart("#conns-chart");
     }
@@ -3723,6 +3781,9 @@ function nodeSig(list) {
 // The reason a row's 切换 button is dead. Kept as its own literal so the i18n
 // harvest sees a label instead of a piece of markup.
 const NO_GROUP_TIP = "当前出口没有可手动切换到此节点的代理组路径";
+// A different failure with a different fix: the configured exit is not in the
+// kernel at all, so no node is switchable until the config is reloaded.
+const NO_EXIT_TIP = "出口分组「{g}」不在运行中的内核里，请重新加载配置或重启内核";
 const DIRECT_MODE_TIP = "直连模式不使用代理节点，请先切换分流模式";
 
 function nodeHeaderHTML(n) {
@@ -3752,7 +3813,7 @@ function nodeCardHTML(n) {
   const route = coreModeCache === "direct" ? null : nodeSwitchRoutes.get(name);
   const tip = coreModeCache === "direct" ? DIRECT_MODE_TIP : NO_GROUP_TIP;
   const how = route ? "点击卡片切换到这个节点" : tip;
-  return '<div class="node-card' + (marked ? " row-sel" : "") + '" data-node-row="' + esc(name) +
+  return '<div class="node-card' + (marked ? " row-sel" : "") + (route ? "" : " nc-dead") + '" data-node-row="' + esc(name) +
     '" data-switch="' + esc(name) + '" title="' + esc(how) + '">' +
     '<div class="nc-head"><b class="nc-name">' + esc(name) + '</b><span class="nc-mark"></span>' +
     '<button class="icon-btn nc-refresh" data-test="' + esc(name) + '" title="重新测速这个节点">' + NODE_REFRESH_ICON + '</button></div>' +
@@ -3907,26 +3968,47 @@ function onNodeRowClick(event) {
 // Apply the leaf first so selecting a parent cannot briefly use an old child.
 // Read back the whole chain before reporting success and undo partial writes
 // if a later selection fails.
+/* The route to one node, derived from live data rather than from the
+   cached map. A cache miss is not proof that the node is unreachable: the kernel
+   answers a poll before its proxy groups are readable, and that empty map would
+   otherwise refuse every click until the next full render. A missing exit group
+   is therefore retried once, which turns the boot window into an ordinary
+   switch instead of an error the user has to answer by clicking again. */
+async function resolveNodeRoute(coreId, name) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const [view, cfg, mode] = await Promise.all([
+      api("/api/cores/proxies?id=" + encodeURIComponent(coreId)),
+      api("/api/config"),
+      api("/api/cores/mode?id=" + encodeURIComponent(coreId)),
+    ]);
+    if (mode.mode === "direct") throw new Error(DIRECT_MODE_TIP);
+    const profile = cfg.core && cfg.core.profile;
+    const route = buildNodeSwitchRoutes(view, profile, mode.mode).get(name);
+    if (route) return { route: route, view: view, profile: profile, mode: mode };
+    // The exit group exists and does not carry this node: that answer is final.
+    if (nodeRouteRoot(view, profile, mode.mode)) return null;
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+    else {
+      const final = profile && (profile.final || ((profile.groups || [])[0] || {}).name);
+      if (final) throw new Error(NO_EXIT_TIP.replace("{g}", final));
+    }
+  }
+  return null;
+}
+
 async function switchNode(name) {
   if (nodeSwitchBusy) { toast("正在切换，请稍候"); return; }
   const running = runningCore();
   if (!running || running.id !== nodeList.coreId) { toast("没有运行中的内核", "err"); return; }
   const card = nodeList.rows ? nodeList.rows.querySelector('[data-switch="' + CSS.escape(name) + '"]') : null;
-  // Nothing to switch when the node is not reachable from the current exit;
-  // say why instead of leaving the click unanswered.
-  if (!nodeSwitchRoutes.has(name) && coreModeCache !== "direct") { toast(NO_GROUP_TIP, "err"); return; }
+  if (coreModeCache === "direct") { toast(DIRECT_MODE_TIP, "err"); return; }
   nodeSwitchBusy = true;
   if (card) card.classList.add("switching");
   const changed = [];
   try {
-    const [view, cfg, mode] = await Promise.all([
-      api("/api/cores/proxies?id=" + encodeURIComponent(running.id)),
-      api("/api/config"),
-      api("/api/cores/mode?id=" + encodeURIComponent(running.id)),
-    ]);
-    const profile = cfg.core && cfg.core.profile;
-    const route = buildNodeSwitchRoutes(view, profile, mode.mode).get(name);
-    if (!route) throw new Error(mode.mode === "direct" ? DIRECT_MODE_TIP : NO_GROUP_TIP);
+    const solved = await resolveNodeRoute(running.id, name);
+    if (!solved) throw new Error(NO_GROUP_TIP);
+    const { route, profile, mode } = solved;
     for (const step of route.slice().reverse()) {
       if (step.previous === step.name) continue;
       await api("/api/cores/select", {
@@ -3938,6 +4020,7 @@ async function switchNode(name) {
     if (resolveProxyNode(actual, route[0].group) !== name) throw new Error("内核返回的当前节点与目标不一致");
     state.profile = profile;
     state.proxies = actual;
+    nodeSwitchRoutes = buildNodeSwitchRoutes(actual, profile, mode.mode);
     toast("已切换 " + name, "ok");
   } catch (e) {
     let restored = true;
@@ -7245,6 +7328,7 @@ function applyTheme() {
     b.classList.toggle("active", on);
     b.setAttribute("aria-pressed", on ? "true" : "false");
   });
+  chartPalette = null;
   drawChart();
 }
 function setTheme(pref) {
@@ -8485,13 +8569,10 @@ function diagDrawSpeed() {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
-  const styles = getComputedStyle(document.body);
-  const accent = styles.getPropertyValue("--accent").trim() || "#6b93ff";
-  const ok = styles.getPropertyValue("--ok").trim() || "#3fd99b";
-  const faint = styles.getPropertyValue("--faint").trim() || "#5f6b83";
+  const { accent, ok, line, faint, mono } = chartColors();
   const data = diag.speedSample;
   const max = Math.max(1, ...data.map((d) => Math.max(d.down || 0, d.up || 0)));
-  ctx.strokeStyle = styles.getPropertyValue("--line").trim() || "#232b3d";
+  ctx.strokeStyle = line;
   ctx.setLineDash([4, 6]);
   for (let i = 1; i < 4; i++) {
     const y = (height / 4) * i;
@@ -8519,7 +8600,7 @@ function diagDrawSpeed() {
     ctx.fillStyle = grad;
     ctx.fill();
   }
-  ctx.font = "11px " + (styles.getPropertyValue("--mono") || "monospace");
+  ctx.font = "11px " + mono;
   ctx.textAlign = "left";
   ctx.fillStyle = ok; ctx.fillText("● 下载", 8, 14);
   const w1 = ctx.measureText("● 下载").width;
@@ -8833,14 +8914,13 @@ function diagResume() {
 }
 /* AI 直达页：逐个节点实测 ChatGPT / Gemini。检测本身由后端串行跑（selector 是全局单值），
    这里只负责启动、轮询、按 Tab 过滤和切换节点。 */
-const ai = { ready: false, tab: "both", rows: [], best: null, group: "", last: null };
+const ai = { ready: false, tab: "all", rows: [], best: null, group: "", last: null };
 
 const AI_STATUS = {
-  // 四档：绿=登录态实测拿到数据；黄绿=网络可达但没登录；黄=风控；红=地区不支持。
-  // 「黄绿」绝不能画成绿色——那正是用户质疑过的那种糊弄。
-  ok: { text: "可用（已登录态实测）", cls: "ok" },
-  nologin: { text: "未登录（网络可达）", cls: "warn" },
-  risk: { text: "风控拦截", cls: "warn" },
+  // 绿=服务从该出口可达、地区受支持，登录与否都算可用（这才是这个页面要回答的问题）；
+  // 黄=出口被风控/Cloudflare 挑战，真实浏览器可能仍可用；红=地区不支持、被拦截或不可达。
+  ok: { text: "可用", cls: "ok" },
+  risk: { text: "需过验证", cls: "warn" },
   region: { text: "地区不支持", cls: "reject" },
   blocked: { text: "被拦截", cls: "err" },
   timeout: { text: "超时", cls: "err" },
@@ -8854,6 +8934,7 @@ function aiBadge(check) {
   if (c.http_status) bits.push("HTTP " + c.http_status);
   if (c.ms) bits.push(c.ms + " ms");
   if (c.path) bits.push(c.path);
+  if (c.final_url) bits.push("最终地址 " + c.final_url);
   if (c.keyword) bits.push("命中关键字：" + c.keyword);
   if (c.exit_ip) bits.push("出口 IP " + c.exit_ip + (c.colo ? "（colo " + c.colo + "）" : ""));
   if (c.extra) bits.push(c.extra);
@@ -8864,12 +8945,11 @@ function aiBadge(check) {
   return '<span class="badge ' + meta.cls + '" title="' + esc(tip) + '">' + esc(meta.text) + "</span>";
 }
 
-// 每个判定给一句人话解释，避免用户把「黄绿」当成「可用」。
+// 每个判定给一句人话解释：可用就是可用，不需要登录。
 function aiStatusMeaning(status) {
   switch (status) {
-    case "ok": return "真实登录会话拉到了数据，这一档才代表能用。";
-    case "nologin": return "IP 没被拦，但没有登录态/密钥，只证明网络通，不代表账号能用。";
-    case "risk": return "被风控挡住（Cloudflare 挑战或限流），换节点或稍后重试。";
+    case "ok": return "服务从该出口可达且地区受支持，登录与否都算可用。";
+    case "risk": return "出口被风控挡住（Cloudflare 挑战或限流），真实浏览器可能仍可打开。";
     case "region": return "服务明确表示该地区不支持。";
     case "blocked": return "响应不在预期之内，无法判定。";
     case "timeout": return "超时，没拿到响应。";
@@ -8879,6 +8959,7 @@ function aiStatusMeaning(status) {
 }
 
 function aiRowMatch(r) {
+  if (ai.tab === "all") return true;
   if (ai.tab === "chatgpt") return !!(r.chatgpt && r.chatgpt.status === "ok");
   if (ai.tab === "gemini") return !!(r.gemini && r.gemini.status === "ok");
   if (ai.tab === "both") return r.verdict === "both";
@@ -9041,23 +9122,44 @@ loadConfig();
 loadNetToggles();
 loadKernelParams();
 loadPorts();
+/* A poll tick is skipped while the previous answer is still in flight: one slow
+   reply would otherwise stack a second identical request behind it, and a stalled
+   core would turn into a queue of them. Explicit calls - a button, entering a
+   page - are never skipped, only the timer is. */
+function poll(fn) {
+  let busy = false;
+  return () => {
+    if (busy) return;
+    busy = true;
+    Promise.resolve()
+      .then(fn)
+      .catch(() => {})
+      .finally(() => { busy = false; });
+  };
+}
+const pollStatus = poll(refreshStatus);
+const pollTraffic = poll(refreshTraffic);
+const pollCores = poll(refreshCores);
+const pollProxies = poll(refreshProxies);
+const pollConns = poll(refreshConns);
+
 // Timers pause while the window is hidden; a hidden window polling three
 // endpoints per second is pure CPU and battery burn.
-timers.push(setInterval(() => { if (!document.hidden) refreshStatus(); }, 2500));
-timers.push(setInterval(() => { if (!document.hidden) refreshTraffic(); }, 1000));
+timers.push(setInterval(() => { if (!document.hidden) pollStatus(); }, 2500));
+timers.push(setInterval(() => { if (!document.hidden) pollTraffic(); }, 1000));
 timers.push(setInterval(() => {
-  if (!document.hidden && $("#page-cores").classList.contains("active")) refreshCores();
+  if (!document.hidden && $("#page-cores").classList.contains("active")) pollCores();
 }, 4000));
 timers.push(setInterval(() => {
-  if (!document.hidden && $("#page-nodes").classList.contains("active")) refreshProxies();
+  if (!document.hidden && $("#page-nodes").classList.contains("active")) pollProxies();
 }, 4000));
 // The dashboard's "current proxy" card reads the same table, but only while a
 // core runs: without one there is nothing to show and every call would fail.
 timers.push(setInterval(() => {
-  if (!document.hidden && runningCore() && $("#page-overview").classList.contains("active")) refreshProxies();
+  if (!document.hidden && runningCore() && $("#page-overview").classList.contains("active")) pollProxies();
 }, 5000));
 timers.push(setInterval(() => {
-  if (!document.hidden && !connsPaused && $("#page-conns").classList.contains("active")) refreshConns();
+  if (!document.hidden && !connsPaused && $("#page-conns").classList.contains("active")) pollConns();
 }, 1500));
 // The boot-repair heartbeat runs even while the window is hidden: the state
 // it watches for - a page that never got a single status answer - is

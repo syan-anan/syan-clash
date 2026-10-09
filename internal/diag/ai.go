@@ -17,19 +17,19 @@ import (
 // workers switching the same group would each measure a node the other one had
 // just replaced, and the table would describe nothing.
 
-// The check vocabulary. It is graded on purpose: "the request reached the
-// service" and "the service actually works with this IP" are different answers,
-// and a client that paints both green is lying to the user.
+// The check vocabulary answers one question - can this node use the service -
+// and it answers it without a session, because a login is not what the page is
+// asking about. Green therefore means "the service answered from this exit and
+// the region is supported"; whether a session was present is evidence carried
+// in the keyword, not the bar the grade has to clear.
 //
-//	ok      绿  - 带登录态（或密钥）真的拿到了数据
-//	nologin 黄绿 - IP 没被拦，但没有登录态 / 没有密钥，只能证明网络通
-//	risk    黄  - 被风控：Cloudflare 挑战、429 限流
-//	region  红  - 地区不支持（明确的关键字命中）
-//	blocked 灰  - 其它非预期响应（状态码不在这几种里）
-//	timeout / error - 没拿到响应
+//	ok      绿  - 服务从该出口可达，且地区受支持（登录与否都算）
+//	risk    黄  - 出口被风控 / Cloudflare 挑战，真实浏览器可能仍可用
+//	region  红  - 服务明确表示该地区不受支持
+//	blocked 红  - 状态码与内容都落在已知形态之外
+//	timeout / error - 没有拿到响应
 const (
 	AICheckOK      = "ok"
-	AICheckNoLogin = "nologin"
 	AICheckRisk    = "risk"
 	AICheckRegion  = "region"
 	AICheckBlocked = "blocked"
@@ -44,19 +44,31 @@ func aiGradeRank(status string) int {
 	switch status {
 	case AICheckOK:
 		return 0
-	case AICheckNoLogin:
-		return 1
 	case AICheckRisk:
-		return 2
+		return 1
 	case AICheckRegion:
-		return 3
+		return 2
 	case AICheckBlocked:
-		return 4
+		return 3
 	case AICheckTimeout:
-		return 5
+		return 4
 	default:
-		return 6
+		return 5
 	}
+}
+
+// aiBest returns the better of two probes of the same service. It is the mirror
+// of aiWorst, for the services where either proof is enough: ChatGPT is usable
+// when the page opens *or* when the session endpoint answers, because both mean
+// this exit reaches the service.
+func aiBest(a, b AICheck) AICheck {
+	if aiGradeRank(b.Status) < aiGradeRank(a.Status) {
+		return b
+	}
+	if aiGradeRank(b.Status) == aiGradeRank(a.Status) && a.Keyword == "" && b.Keyword != "" {
+		return b
+	}
+	return a
 }
 
 // aiWorst returns the worse of two checks, keeping the evidence of whichever
@@ -110,6 +122,10 @@ type AICheck struct {
 	Colo       string `json:"colo,omitempty"`
 	At         string `json:"at,omitempty"`
 	Extra      string `json:"extra,omitempty"`
+	// FinalURL is where the request ended up when it was redirected. It is the
+	// AI Studio region test's whole evidence: the same 200 lands either on the
+	// Google sign-in page or on the available-regions page.
+	FinalURL string `json:"final_url,omitempty"`
 	// raw keeps the body as it arrived for the one caller that needs its line
 	// structure - the cdn-cgi/trace parser. Detail is flattened to a single
 	// line on purpose, so it cannot be used for that.
@@ -186,19 +202,42 @@ func keywordOf(lower string, markers ...string) string {
 // serves when it does not like the client. They are a rate limit, not a region
 // block, and they are the most common reason a "the AI site does not work"
 // report turns out to be about the exit IP's reputation.
-func isCloudflareChallenge(lower string) bool {
-	return keywordOf(lower, "just a moment", "cf-chl", "cf_chl", "attention required",
-		"error 1020", "access denied", "ray id") != ""
+// cfChallengeMarkers are the pages Cloudflare serves when it wants the client to
+// prove it is a browser. A real browser walks straight through them, which is
+// why they are not a "blocked" answer for a service the user opens in the
+// built-in sign-in window.
+var cfChallengeMarkers = []string{
+	"just a moment", "cf-chl", "cf_chl", "enable javascript and cookies", "checking your browser",
 }
 
-// ClassifyChatGPTSession grades https://chatgpt.com/api/auth/session.
+// cfBlockMarkers are the pages Cloudflare serves once it has decided the client
+// will never get through. That is a different answer from a challenge, and the
+// only one that is risk control.
+var cfBlockMarkers = []string{
+	"error 1020", "attention required", "access denied", "you have been blocked",
+	"sorry, you have been blocked",
+}
+
+func isCloudflareChallenge(lower string) bool {
+	return keywordOf(lower, cfChallengeMarkers...) != ""
+}
+
+// ClassifyChatGPT grades both ChatGPT probes: the page the built-in sign-in
+// window opens (https://chatgpt.com/) and the session endpoint behind it.
 //
-//	200 + accessToken/user  -> 绿：这是一次带登录态的真实会话
-//	200 + {}                -> 黄绿：IP 没被拦，但没人登录
-//	401                     -> 黄绿：服务在，只是要凭据
-//	403 + unsupported_country / not available -> 红
-//	403 + Cloudflare 挑战   -> 黄
-func ClassifyChatGPTSession(httpStatus int, body string) (string, string) {
+// ChatGPT carries no region restriction the way Gemini does, so "the site
+// answered from this exit" is the whole question. A Cloudflare *managed
+// challenge* counts as an answer: it is served by chatgpt.com itself, and a real
+// browser - which is exactly what the sign-in window is - walks through it. Only
+// a hard Cloudflare block, a rate limit or an explicit region refusal is a
+// warning.
+//
+//	200 / 401                       -> 绿：站点答了
+//	200 + accessToken               -> 绿：而且带登录态
+//	403 + 托管挑战（cf_chl 等）      -> 绿：站点在，只是要浏览器自证
+//	403 + 硬封禁 / 429              -> 黄：风控
+//	403 + unsupported_country       -> 红：地区不支持
+func ClassifyChatGPT(httpStatus int, body, finalURL string) (string, string) {
 	lower := strings.ToLower(body)
 	if kw := keywordOf(lower,
 		"unsupported_country",
@@ -207,17 +246,18 @@ func ClassifyChatGPTSession(httpStatus int, body string) (string, string) {
 		"unsupported region"); kw != "" {
 		return AICheckRegion, kw
 	}
-	if kw := keywordOf(lower, "accesstoken", "\"user\"", "session_token", "user_id"); kw != "" {
+	if kw := keywordOf(lower, "accesstoken", "session_token"); kw != "" {
 		return AICheckOK, kw
 	}
-	if isCloudflareChallenge(lower) {
-		return AICheckRisk, "cloudflare challenge"
+	if kw := keywordOf(lower, cfBlockMarkers...); kw != "" {
+		return AICheckRisk, kw
+	}
+	if kw := keywordOf(lower, cfChallengeMarkers...); kw != "" {
+		return AICheckOK, kw
 	}
 	switch httpStatus {
-	case http.StatusOK:
-		return AICheckNoLogin, "empty session"
-	case http.StatusUnauthorized:
-		return AICheckNoLogin, "401 needs credentials"
+	case http.StatusOK, http.StatusUnauthorized:
+		return AICheckOK, "site answered"
 	case http.StatusTooManyRequests:
 		return AICheckRisk, "429 rate limited"
 	case http.StatusForbidden:
@@ -228,12 +268,15 @@ func ClassifyChatGPTSession(httpStatus int, body string) (string, string) {
 }
 
 // ClassifyGeminiApp grades https://gemini.google.com/app - the page a person
-// actually opens. Without a session it answers with a sign-in page; that is
-// 黄绿, not 绿, because nothing has proved the account works from here.
-func ClassifyGeminiApp(httpStatus int, body string) (string, string) {
+// actually opens. A sign-in page is green: it proves the region is served and
+// only the account is missing, which is the question the page asks.
+func ClassifyGeminiApp(httpStatus int, body, finalURL string) (string, string) {
 	lower := strings.ToLower(body)
 	if kw := keywordOf(lower, "not available in your country", "unsupported region", "isn't available in your country"); kw != "" {
 		return AICheckRegion, kw
+	}
+	if kw := keywordOf(lower, cfBlockMarkers...); kw != "" {
+		return AICheckRisk, kw
 	}
 	if isCloudflareChallenge(lower) {
 		return AICheckRisk, "cloudflare challenge"
@@ -241,12 +284,12 @@ func ClassifyGeminiApp(httpStatus int, body string) (string, string) {
 	switch httpStatus {
 	case http.StatusOK:
 		if kw := keywordOf(lower, "sign in", "accounts.google.com", "service=accountchooser"); kw != "" {
-			return AICheckNoLogin, kw
+			return AICheckOK, kw
 		}
 		if kw := keywordOf(lower, "gemini", "bard"); kw != "" {
-			return AICheckNoLogin, "app page without a session"
+			return AICheckOK, kw
 		}
-		return AICheckNoLogin, "200 without a session"
+		return AICheckOK, "200"
 	case http.StatusTooManyRequests:
 		return AICheckRisk, "429 rate limited"
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -258,30 +301,69 @@ func ClassifyGeminiApp(httpStatus int, body string) (string, string) {
 
 // ClassifyGeminiAPI grades the API host. This service answers a region block
 // with 400 and a credential complaint with 400/403 - the opposite of OpenAI -
-// so the body decides, not the status.
-func ClassifyGeminiAPI(httpStatus int, body string) (string, string) {
+// so the body decides, not the status. A missing key is green: the region
+// answered, and that is the only thing this page is asking about.
+func ClassifyGeminiAPI(httpStatus int, body, finalURL string) (string, string) {
 	lower := strings.ToLower(body)
 	if kw := keywordOf(lower, "user location is not supported", "unsupported region"); kw != "" {
 		return AICheckRegion, kw
 	}
 	if kw := keywordOf(lower, "api key not valid", "missing a valid api key", "unregistered callers", "api_key_invalid"); kw != "" {
-		// 可达，但没有密钥：只证明网络通，不证明能用。
-		return AICheckNoLogin, kw
+		return AICheckOK, kw
+	}
+	if kw := keywordOf(lower, cfBlockMarkers...); kw != "" {
+		return AICheckRisk, kw
 	}
 	if isCloudflareChallenge(lower) {
 		return AICheckRisk, "cloudflare challenge"
 	}
 	switch httpStatus {
 	case http.StatusOK:
-		// A 200 only counts as 绿 when it really carries the model list: the
-		// host also answers 200 with pages that are not data, and calling that
-		// "usable" is exactly the shortcut this grading exists to avoid.
 		if kw := keywordOf(lower, "models", "gemini"); kw != "" {
-			return AICheckOK, "models returned"
+			return AICheckOK, kw
 		}
-		return AICheckNoLogin, "200 without a model list"
+		return AICheckOK, "200"
 	case http.StatusTooManyRequests:
 		return AICheckRisk, "429 rate limited"
+	default:
+		return AICheckBlocked, ""
+	}
+}
+
+// ClassifyAIStudio grades the login-free region test the page documents: ask
+// for a new AI Studio chat and follow the answer to its end. A redirect to
+// .../docs/available-regions is the service saying the region is not served;
+// anything else - the Google sign-in page in particular - means the region is
+// fine and only an account is missing. The final URL is therefore the evidence,
+// not the status code, which is 200 in both cases.
+func ClassifyAIStudio(httpStatus int, body, finalURL string) (string, string) {
+	lower := strings.ToLower(body)
+	if strings.Contains(strings.ToLower(finalURL), "available-regions") {
+		return AICheckRegion, "available-regions"
+	}
+	if kw := keywordOf(lower,
+		"not available in your country",
+		"isn't available in your country",
+		"not currently available in your country",
+		"unsupported region"); kw != "" {
+		return AICheckRegion, kw
+	}
+	if kw := keywordOf(lower, cfBlockMarkers...); kw != "" {
+		return AICheckRisk, kw
+	}
+	if isCloudflareChallenge(lower) {
+		return AICheckRisk, "cloudflare challenge"
+	}
+	switch httpStatus {
+	case http.StatusOK:
+		if strings.Contains(strings.ToLower(finalURL), "accounts.google.com") {
+			return AICheckOK, "sign-in redirect"
+		}
+		return AICheckOK, "aistudio page"
+	case http.StatusTooManyRequests:
+		return AICheckRisk, "429 rate limited"
+	case http.StatusForbidden:
+		return AICheckRisk, "403 forbidden"
 	default:
 		return AICheckBlocked, ""
 	}
@@ -372,9 +454,14 @@ type aiEndpoint struct {
 	ID  string
 	URL string
 	// Service names the cookie jar the request should carry. Empty means the
-	// endpoint is answered without a session (the Cloudflare trace).
-	Service  string
-	Classify func(httpStatus int, body string) (string, string)
+	// endpoint is answered without a session: the Cloudflare trace, and the AI
+	// Studio region test, which has to be asked as a stranger to mean anything.
+	Service string
+	// Redirects is how many hops the probe follows before it reads the answer.
+	// The AI Studio region test *is* a redirect, so without following it the
+	// probe would only ever see the 302 and never the page that decides.
+	Redirects int
+	Classify  func(httpStatus int, body, finalURL string) (string, string)
 }
 
 var (
@@ -383,7 +470,7 @@ var (
 		URL: "https://chatgpt.com/cdn-cgi/trace",
 		// The trace body is not a verdict, it is evidence: it is parsed
 		// separately and never classified as a service answer.
-		Classify: func(int, string) (string, string) { return AICheckNoLogin, "" },
+		Classify: func(int, string, string) (string, string) { return AICheckOK, "" },
 	}
 	// Cloudflare challenges chatgpt.com's own trace from an exit IP it does not
 	// like, and then the row would carry no exit IP at all. The plain
@@ -392,13 +479,30 @@ var (
 	aiTraceFallback = aiEndpoint{
 		ID:       "trace-fallback",
 		URL:      "https://www.cloudflare.com/cdn-cgi/trace",
-		Classify: func(int, string) (string, string) { return AICheckNoLogin, "" },
+		Classify: func(int, string, string) (string, string) { return AICheckOK, "" },
+	}
+	// ChatGPT is judged from the page the built-in sign-in window opens and from
+	// the session endpoint behind it. Either one answering means this exit
+	// reaches ChatGPT, so the pair is combined with aiBest, not aiWorst.
+	aiChatGPTPage = aiEndpoint{
+		ID:        "chatgpt",
+		URL:       "https://chatgpt.com/",
+		Redirects: 3,
+		Classify:  ClassifyChatGPT,
 	}
 	aiChatGPTSession = aiEndpoint{
-		ID:       "chatgpt",
+		ID:       "chatgpt-session",
 		URL:      "https://chatgpt.com/api/auth/session",
 		Service:  "chatgpt",
-		Classify: ClassifyChatGPTSession,
+		Classify: ClassifyChatGPT,
+	}
+	// The login-free region test. It is asked without the sign-in cookies on
+	// purpose: the answer is about the region, and a session would only hide it.
+	aiAIStudio = aiEndpoint{
+		ID:        "aistudio",
+		URL:       "https://aistudio.google.com/prompts/new_chat?model=gemini-3-flash-preview",
+		Redirects: 5,
+		Classify:  ClassifyAIStudio,
 	}
 	aiGeminiApp = aiEndpoint{
 		ID:       "gemini-app",
@@ -413,6 +517,12 @@ var (
 		Classify: ClassifyGeminiAPI,
 	}
 )
+
+// hasAICookies reports whether a sign-in session is stored for one service. The
+// session probe only earns its round trip when there is something to prove.
+func (p *Prober) hasAICookies(service string) bool {
+	return p.opts.AICookies != nil && len(p.opts.AICookies(service)) > 0
+}
 
 // probeTrace asks Cloudflare who it thinks we are. The answer is the exit IP,
 // the country and the edge that served it - the evidence a user can check
@@ -441,26 +551,31 @@ func (p *Prober) probeAI(ctx context.Context, via Via, ep aiEndpoint) AICheck {
 		return p.stamp(aiErrorCheck(err, p.sinceMS(start), ep))
 	}
 	if ep.Service != "" && p.opts.AICookies != nil {
-		// The sign-in cookies are what turn "the network answered" into "the
-		// account answered": with them the session endpoint returns real data
-		// (绿), without them it returns an empty session (黄绿).
+		// The sign-in cookies turn "the network answered" into "the account
+		// answered": with them the session endpoint returns real data, without
+		// them it returns the anonymous session. Both are green; the cookies
+		// only sharpen the evidence.
 		for _, c := range p.opts.AICookies(ep.Service) {
 			req.AddCookie(c)
 		}
 	}
 	pctx, cancel := context.WithTimeout(ctx, p.timeout())
 	defer cancel()
-	resp, body, err := p.do(pctx, via, req, clientOpts{})
+	resp, body, err := p.do(pctx, via, req, clientOpts{maxRedirects: ep.Redirects})
 	ms := p.sinceMS(start)
+	final := ep.URL
+	if resp != nil && resp.Request != nil && resp.Request.URL != nil {
+		final = resp.Request.URL.String()
+	}
 	if err != nil {
 		// A read that failed after the headers arrived still has a real status
 		// and a real body prefix, so it is classified like a normal answer.
 		if resp != nil && resp.StatusCode > 0 {
-			return p.stamp(aiCheckFromResponse(ep, resp.StatusCode, body, ms))
+			return p.stamp(aiCheckFromResponse(ep, resp.StatusCode, body, final, ms))
 		}
 		return p.stamp(aiErrorCheck(err, ms, ep))
 	}
-	return p.stamp(aiCheckFromResponse(ep, resp.StatusCode, body, ms))
+	return p.stamp(aiCheckFromResponse(ep, resp.StatusCode, body, final, ms))
 }
 
 // stamp records when the measurement was taken. A verdict without a timestamp
@@ -472,9 +587,9 @@ func (p *Prober) stamp(check AICheck) AICheck {
 }
 
 // aiCheckFromResponse builds one check from a real HTTP answer.
-func aiCheckFromResponse(ep aiEndpoint, httpStatus int, body []byte, ms int) AICheck {
-	status, keyword := ep.Classify(httpStatus, string(body))
-	return AICheck{
+func aiCheckFromResponse(ep aiEndpoint, httpStatus int, body []byte, finalURL string, ms int) AICheck {
+	status, keyword := ep.Classify(httpStatus, string(body), finalURL)
+	check := AICheck{
 		Status:     status,
 		HTTPStatus: httpStatus,
 		Detail:     aiExcerpt(string(body)),
@@ -483,6 +598,12 @@ func aiCheckFromResponse(ep aiEndpoint, httpStatus int, body []byte, ms int) AIC
 		Keyword:    keyword,
 		raw:        string(body),
 	}
+	// The final URL is only carried when it differs from the one that was asked
+	// for: that difference is the region test's whole answer.
+	if finalURL != "" && finalURL != ep.URL {
+		check.FinalURL = finalURL
+	}
+	return check
 }
 
 // aiErrorCheck builds the check for a failure that produced no response.
@@ -564,7 +685,7 @@ func (r *aiRun) work(p *Prober, ctx context.Context, job *Job, sel AISelector, n
 			r.addError("切换到 " + node + " 失败：" + err.Error())
 			r.addRow(AIRow{
 				Node:    node,
-				ChatGPT: p.stamp(aiErrorCheck(err, 0, aiChatGPTSession)),
+				ChatGPT: p.stamp(aiErrorCheck(err, 0, aiChatGPTPage)),
 				Gemini:  p.stamp(aiErrorCheck(err, 0, aiGeminiApp)),
 				Verdict: "none",
 			})
@@ -573,12 +694,41 @@ func (r *aiRun) work(p *Prober, ctx context.Context, job *Job, sel AISelector, n
 		// One trace per node, then the three service probes. The trace is what
 		// makes the verdict reviewable: it is Cloudflare's own statement about
 		// which IP and which edge it saw, and it is attached to both rows.
-		exitIP, loc, colo := p.probeTrace(ctx, ViaProxy)
-		chatgpt := p.probeAI(ctx, ViaProxy, aiChatGPTSession)
-		// Gemini is judged from two places: the page a person opens and the API
-		// host. The worse of the two decides, because one blocked path means
-		// the service is not usable from this node.
-		gemini := aiWorst(p.probeAI(ctx, ViaProxy, aiGeminiApp), p.probeAI(ctx, ViaProxy, aiGeminiAPI))
+		// One node's probes are independent of each other, so they go out
+		// together. The sweep is still serial across nodes - a selector holds a
+		// single value - but there is no reason to wait for the trace before
+		// asking ChatGPT. The prober's concurrency gate bounds the burst, so
+		// this stays inside the same limit every other panel uses.
+		var (
+			exitIP, loc, colo string
+			chatgpt, gemini   AICheck
+		)
+		var wg sync.WaitGroup
+		run := func(fn func()) {
+			wg.Add(1)
+			go func() { defer wg.Done(); fn() }()
+		}
+		run(func() { exitIP, loc, colo = p.probeTrace(ctx, ViaProxy) })
+		run(func() {
+			chatgpt = p.probeAI(ctx, ViaProxy, aiChatGPTPage)
+			// The session endpoint is only worth a round trip when there is a
+			// sign-in to prove: without cookies it answers the same anonymous
+			// payload the page probe already saw.
+			if p.hasAICookies("chatgpt") {
+				chatgpt = aiBest(chatgpt, p.probeAI(ctx, ViaProxy, aiChatGPTSession))
+			}
+		})
+		run(func() {
+			// Gemini is judged from three places: the login-free AI Studio
+			// region test, the page a person opens, and the API host. The worse
+			// of the three decides, because one blocked path means the service
+			// is not usable from this node.
+			gemini = aiWorst(
+				aiWorst(p.probeAI(ctx, ViaProxy, aiAIStudio), p.probeAI(ctx, ViaProxy, aiGeminiApp)),
+				p.probeAI(ctx, ViaProxy, aiGeminiAPI),
+			)
+		})
+		wg.Wait()
 		for _, c := range []*AICheck{&chatgpt, &gemini} {
 			c.ExitIP, c.Colo = exitIP, colo
 			if loc != "" {
