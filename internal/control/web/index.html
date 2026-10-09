@@ -8863,9 +8863,6 @@ function diagBindOnce() {
     await diagRunUnlock("proxy");
   };
   $("#diag-ip-live").onclick = () => diagRunIP(true, false);
-  spinOn("#diag-refresh-all");
-  spinOn("#diag-ip-run");
-  spinOn("#diag-ip-live");
   $("#diag-external").onchange = async (e) => {
     const want = e.target.checked;
     e.target.disabled = true;
@@ -8882,6 +8879,10 @@ function diagBindOnce() {
   };
   $("#diag-ip-run").onclick = () => diagRunIP(false, false);
   $("#diag-ip-compare").onclick = () => diagRunIP(true, true);
+  // 三个按钮都绑好之后再包转圈：顺序反了包到的是空的 onclick。
+  spinOn("#diag-refresh-all");
+  spinOn("#diag-ip-run");
+  spinOn("#diag-ip-live");
   $("#diag-ul-run").onclick = () => diagRunUnlock("proxy");
   $("#diag-ul-direct").onclick = () => diagRunUnlock("direct");
   diagSeg("#diag-mx-sites");

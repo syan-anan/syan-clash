@@ -160,20 +160,24 @@ async function main() {
       await page.waitForTimeout(300);
       const before = report.requests.length;
       await page.evaluate(() => document.querySelector('#diag-ip-live').click());
-      await page.waitForTimeout(900);
+      await page.waitForFunction(() => !!document.querySelector('#diag-ip-live .spin'), null, { timeout: 3000 });
+      const spinning = await page.evaluate(() => document.querySelector('#diag-ip-live').disabled);
+      assert.equal(spinning, true, 'the live button should spin while it probes');
+      await page.waitForFunction(() => !document.querySelector('#diag-ip-live .spin'), null, { timeout: 8000 });
       const live = report.requests.slice(before).filter((r) => r.path === '/api/diag/ip');
       assert.equal(live.length, 1, JSON.stringify(live));
       assert.match(live[0].query, /refresh=1/, live[0].query);
       assert.doesNotMatch(live[0].query, /compare=1/, live[0].query);
       const cachedBadge = await page.locator('#diag-ip-cached').innerText();
       assert.equal(cachedBadge.trim(), '', 'a live probe must not be labelled as cached');
-      return { query: live[0].query, cachedBadge: cachedBadge.trim() };
+      return { query: live[0].query, cachedBadge: cachedBadge.trim(), spinning };
     });
 
     await record('\u68c0\u6d4b\u51fa\u53e3 IP \u6309\u94ae\u4ecd\u7136\u8d70\u7f13\u5b58\u8def\u5f84', async () => {
       const before = report.requests.length;
       await page.evaluate(() => document.querySelector('#diag-ip-run').click());
-      await page.waitForTimeout(900);
+      await page.waitForFunction(() => !!document.querySelector('#diag-ip-run .spin'), null, { timeout: 3000 });
+      await page.waitForFunction(() => !document.querySelector('#diag-ip-run .spin'), null, { timeout: 8000 });
       const hit = report.requests.slice(before).filter((r) => r.path === '/api/diag/ip');
       assert.equal(hit.length, 1, JSON.stringify(hit));
       assert.match(hit[0].query, /refresh=0/, hit[0].query);
