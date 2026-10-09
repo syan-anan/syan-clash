@@ -538,11 +538,14 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
   .spin { width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .25); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: -2px; }
   html.light .spin { border-color: rgba(29, 29, 43, .2); border-top-color: var(--accent); }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--bd); border-radius: 13px; padding: 3px; gap: 3px; backdrop-filter: blur(16px); }
+  /* 分段控件不再叠一层 backdrop-filter：它坐在已经模糊的 .toolbar / .card 上，
+     父层每次重绘都会让这层背景重新采样一次，控件底色就会一闪一闪。去掉它
+     少一次 GPU 合成，观感不变——玻璃底由父层提供。 */
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--bd); border-radius: 13px; padding: 3px; gap: 3px; }
   .seg button {
     background: transparent; border: 0; color: var(--sub); padding: 6px 13px; border-radius: 10px;
     cursor: pointer; font-size: 12.5px; font-family: inherit; font-weight: 650;
-    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+    transition: color .18s ease, box-shadow .18s ease; /* 背景是渐变，补间不了，留着只会让选中项闪一下 */
   }
   .seg button:hover:not(:disabled) { color: var(--ink); }
   .seg button.active {
@@ -1652,6 +1655,7 @@ tr.conn-group .gtag { color: var(--sub); font-weight: 500; margin-left: 10px; }
           <div class="row tight">
             <button class="btn primary" id="diag-ip-run">检测出口 IP</button>
             <button class="btn" id="diag-ip-compare">与直连对照</button>
+            <button class="btn" id="diag-ip-live" title="忽略缓存，现场重新探测一次">现场检测</button>
             <span class="badge" id="diag-ip-cached"></span>
             <span class="muted" id="diag-ip-msg" style="font-size:12.5px"></span>
           </div>
@@ -2158,6 +2162,7 @@ const state = {
   cores: [],
   profile: null,
   proxies: null,
+  coreConns: null,
   conns: [],
   connSource: "core",
   traffic: [],
@@ -2993,6 +2998,28 @@ const METRIC_SKELETON = METRIC_CARDS.map(([label, id, sub], i) =>
   '<div class="metric ac' + (i % 5 + 1) + '"><div class="k">' + esc(label) + '</div>' +
   '<div class="v" id="' + id + '"></div><div class="s" id="' + sub + '"></div></div>').join("");
 
+/* 仪表盘的「活跃连接」在内核模式下必须读内核自己的连接表：流量交给内核之后，
+   内置引擎的注册表永远是 0，卡片就会一直显示 0 条。内核连接数单独轮询，
+   /api/status 是 2.5 秒一次的热路径，不该每次都去拉整张连接表。 */
+async function refreshOverviewConns() {
+  const running = runningCore();
+  if (!running || !running.clash_api) { state.coreConns = null; renderOverviewConns(); return; }
+  try {
+    const res = await api("/api/cores/connections?id=" + encodeURIComponent(running.id));
+    state.coreConns = (res.connections || []).length;
+  } catch (e) { state.coreConns = null; }
+  renderOverviewConns();
+}
+
+function renderOverviewConns() {
+  const el = document.getElementById("ov-conns");
+  if (!el) return;
+  const st = state.status || {};
+  const live = typeof state.coreConns === "number" ? state.coreConns : null;
+  setText(el, (live == null ? st.active_conns : live) + " 条");
+  setText(document.getElementById("ov-conns-s"), live == null ? "累计 " + st.total_conns + " 条" : "内核实时");
+}
+
 function renderOverview() {
   const st = state.status;
   if (!st) return;
@@ -3009,8 +3036,7 @@ function renderOverview() {
   setHTML($("#overview-metrics"), METRIC_SKELETON, "metrics");
   const metric = (id) => document.getElementById(id);
   const sample = lastTrafficSample();
-  setText(metric("ov-conns"), st.active_conns + " 条");
-  setText(metric("ov-conns-s"), "累计 " + st.total_conns + " 条");
+  renderOverviewConns();
   setText(metric("ov-down"), fmtSpeed(sample.down));
   setText(metric("ov-down-s"), "总计 " + fmtBytes(state.totalDown));
   setText(metric("ov-up"), fmtSpeed(sample.up));
@@ -3114,6 +3140,15 @@ function currentProxySummary() {
   };
 }
 
+/* 节点表可能还没读回来（刚启动、刚换内核）。第一次点「测速」不该报
+   "没有可测速的代理组"，所以这里先补一次读取，再判定。 */
+async function ovProxySummary() {
+  let info = currentProxySummary();
+  if (info && info.group) return info;
+  try { await refreshProxies(); } catch (e) { /* 读不到就按空表处理 */ }
+  return currentProxySummary();
+}
+
 function renderOverviewProxy() {
   const st = state.status || {};
   const nodeEl = $("#ov-node");
@@ -3162,7 +3197,7 @@ function syncDashSwitches() { for (const fn of dashSwitchSync) fn(); }
 $("#ov-test").onclick = async () => {
   const running = runningCore();
   if (!running) { toast("先在「内核」页启动一个内核再测速", "err"); return; }
-  const info = currentProxySummary();
+  const info = await ovProxySummary();
   if (!info || !info.group) { toast("还没有可测速的代理组", "err"); return; }
   const btn = $("#ov-test");
   const original = btn.textContent;
@@ -3197,7 +3232,7 @@ $("#ov-test").onclick = async () => {
 $("#ov-test-all").onclick = async () => {
   const running = runningCore();
   if (!running) { toast("先在「内核」页启动一个内核再测速", "err"); return; }
-  const info = currentProxySummary();
+  const info = await ovProxySummary();
   if (!info || !info.group) { toast("还没有可测速的代理组", "err"); return; }
   const btn = $("#ov-test-all");
   const original = btn.textContent;
@@ -3283,6 +3318,8 @@ async function loadOvIP(refresh) {
   try {
     ovIPReport = await api("/api/diag/ip?via=proxy&refresh=" + (refresh ? "1" : "0"));
     renderOvIP();
+    // 只有手动刷新才提示：启动时那次静默读取不该弹窗。
+    if (refresh) toast("出口 IP：" + ovIPReport.ip, "ok");
   } catch (e) {
     ovIPReport = null;
     renderOvIP();
@@ -4271,7 +4308,7 @@ async function testDelay(btn, coreId, name) {
   }
 }
 
-$("#nodes-refresh").onclick = () => { nodeTestState = null; renderNodeTestProgress(); refreshProxies(); };
+$("#nodes-refresh").onclick = () => { nodeTestState = null; renderNodeTestProgress(); return refreshProxies(); };
 
 /* Sorting the node table. Delay is the only column worth ordering by in
    practice, so the options are the four Clash Verge offers. Nodes that have
@@ -6358,7 +6395,7 @@ $("#rule-add").onclick = async () => {
 };
 
 /* ---------------- cores ---------------- */
-$("#cores-refresh").onclick = () => { refreshCores(); loadCorePreview(); loadCoreVersions(); };
+$("#cores-refresh").onclick = () => Promise.all([refreshCores(), loadCorePreview(), loadCoreVersions()]);
 $$("#core-preview-pick button").forEach((btn) => {
   btn.onclick = () => {
     state.previewCore = btn.dataset.core;
@@ -8825,6 +8862,10 @@ function diagBindOnce() {
     await diagRunIP(false, false);
     await diagRunUnlock("proxy");
   };
+  $("#diag-ip-live").onclick = () => diagRunIP(true, false);
+  spinOn("#diag-refresh-all");
+  spinOn("#diag-ip-run");
+  spinOn("#diag-ip-live");
   $("#diag-external").onchange = async (e) => {
     const want = e.target.checked;
     e.target.disabled = true;
@@ -9016,14 +9057,31 @@ function aiTable(rows) {
 }
 
 async function aiLoadGroups() {
+  const sel = $("#ai-group");
+  const keep = sel.value;
+  let names = [];
+  // 分组列表以「内核里真实存在的组」为准：检测本身就是逐一切换内核的 select 组，
+  // 配置里还没下发到内核的组切不动，列出来只会让「开始检测」直接报错。
   try {
-    const body = await api("/api/profile/groups");
-    const groups = body.groups || [];
-    const sel = $("#ai-group");
-    const keep = sel.value;
-    sel.innerHTML = '<option value="">默认组</option>' + groups.map((g) => '<option value="' + esc(g.name) + '">' + esc(g.name) + "</option>").join("");
-    if (keep) sel.value = keep;
-  } catch (e) { /* 组列表读不到就留默认组 */ }
+    const running = runningCore();
+    if (running && running.clash_api) {
+      const view = await api("/api/cores/proxies?id=" + encodeURIComponent(running.id));
+      names = (view.groups || []).filter((g) => String(g.type || "").toLowerCase() === "selector").map((g) => g.name);
+    }
+  } catch (e) { /* 内核没起来就退回配置里的分组 */ }
+  if (!names.length) {
+    try {
+      const body = await api("/api/profile/groups");
+      names = (body.groups || []).map((g) => g.name);
+    } catch (e) { /* 组列表读不到就留默认组 */ }
+  }
+  // GLOBAL 在规则模式下不参与分流，排在最后当兜底。
+  names.sort((a, b) => (a === "GLOBAL" ? 1 : 0) - (b === "GLOBAL" ? 1 : 0));
+  sel.innerHTML = '<option value="">默认组</option>' + names.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
+  if (keep && names.indexOf(keep) >= 0) sel.value = keep;
+  // 后端要求明确的组名，空值会直接报 group is required：没有一个组被选中时默认落在
+  // 第一个可测的组上，让「开始检测」点一次就能跑起来。
+  if (!sel.value && names.length) sel.value = names[0];
 }
 
 async function aiPick(node) {
@@ -9038,13 +9096,16 @@ async function aiPick(node) {
 
 async function aiRun() {
   const btn = $("#ai-run");
+  const sel = $("#ai-group");
+  const group = sel.value || ai.group || (sel.options.length > 1 ? sel.options[1].value : "");
+  if (!group) { toast("先选一个代理组", "err"); return; }
   btn.disabled = true;
   try {
     const r = await api("/api/diag/ai/run", {
       method: "POST",
-      body: JSON.stringify({ group: $("#ai-group").value, only_missing: false }),
+      body: JSON.stringify({ group: group, only_missing: false }),
     });
-    ai.group = r.group || $("#ai-group").value;
+    ai.group = r.group || group;
     toast("AI 检测已开始：" + r.total + " 个节点", "ok");
     aiAttach(r.job);
   } catch (e) {
@@ -9115,13 +9176,42 @@ loadNodeHist();
 refreshStatus();
 renderSystemInfo();
 loadSubscriptions();
-refreshCores().then(refreshTraffic);
+refreshCores().then(refreshTraffic).then(refreshOverviewConns);
 loadOvIP(false);
 loadRules();
 loadConfig();
 loadNetToggles();
 loadKernelParams();
 loadPorts();
+
+/* 刷新类按钮统一加「转圈」反馈：包住按钮已经绑好的 onclick，按钮自己的逻辑一行都不用改。
+   点下去先转圈并禁用（避免连点堆请求），拿到结果——成功或失败——再复原。 */
+const SPIN_BUTTONS = [
+  "#ov-ip-refresh", "#nodes-refresh", "#conns-refresh", "#cores-refresh", "#core-versions-refresh",
+  "#dns-leak-refresh", "#core-ports-refresh", "#profiles-refresh", "#groups-refresh", "#providers-refresh",
+  "#service-refresh", "#urlscheme-refresh", "#webdav-refresh", "#panel-refresh",
+];
+function spinOn(sel) {
+  const btn = $(sel);
+  if (!btn || typeof btn.onclick !== "function") return;
+  const inner = btn.onclick;
+  btn.onclick = async function (ev) {
+    if (btn.disabled) return;
+    const html = btn.innerHTML;
+    const started = Date.now();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>';
+    try { return await inner.call(this, ev); }
+    finally {
+      // 同步返回的处理器也要让人看见它在转：给一个最短可见时长。
+      const left = 420 - (Date.now() - started);
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      btn.disabled = false;
+      btn.innerHTML = html;
+    }
+  };
+}
+for (const sel of SPIN_BUTTONS) spinOn(sel);
 /* A poll tick is skipped while the previous answer is still in flight: one slow
    reply would otherwise stack a second identical request behind it, and a stalled
    core would turn into a queue of them. Explicit calls - a button, entering a
@@ -9142,6 +9232,7 @@ const pollTraffic = poll(refreshTraffic);
 const pollCores = poll(refreshCores);
 const pollProxies = poll(refreshProxies);
 const pollConns = poll(refreshConns);
+const pollOvConns = poll(refreshOverviewConns);
 
 // Timers pause while the window is hidden; a hidden window polling three
 // endpoints per second is pure CPU and battery burn.
@@ -9158,6 +9249,11 @@ timers.push(setInterval(() => {
 timers.push(setInterval(() => {
   if (!document.hidden && runningCore() && $("#page-overview").classList.contains("active")) pollProxies();
 }, 5000));
+// The active-connection card reads the core's own table: the built-in
+// registry is always empty while a core carries the traffic.
+timers.push(setInterval(() => {
+  if (!document.hidden && runningCore() && $("#page-overview").classList.contains("active")) pollOvConns();
+}, 3000));
 timers.push(setInterval(() => {
   if (!document.hidden && !connsPaused && $("#page-conns").classList.contains("active")) pollConns();
 }, 1500));

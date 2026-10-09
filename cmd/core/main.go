@@ -24,7 +24,7 @@ import (
 	"vvpn/internal/tray"
 )
 
-var version = "0.2.0"
+var version = "0.2.1"
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to the configuration file")
