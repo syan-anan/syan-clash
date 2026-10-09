@@ -63,11 +63,13 @@
 ## 快速开始
 
 ```powershell
-go build -o syan-clash.exe ./cmd/core
-.\syan-clash.exe -config config.json          # 首次运行会写出默认配置
+.\build.ps1                                   # 发布构建 → syan-clash.exe（窗口 + 托盘，无控制台窗口）
+.\syan-clash.exe                              # 首次运行会在 exe 旁写出默认 config.json
 ```
 
-控制台：<http://127.0.0.1:9090/>（地址由 `api.addr` 决定）。
+控制台：<http://127.0.0.1:3090/>（地址由 `api.addr` 决定）。
+
+只想跑内核 + 控制台、不要窗口：`go build -o syan-clash.exe ./cmd/core`。
 
 只渲染配置、不启动进程：
 
@@ -108,10 +110,10 @@ go build -o syan-clash.exe ./cmd/core
 
 ```jsonc
 {
-  "inbound":  { "socks5_addr": "127.0.0.1:7891", "http_addr": "127.0.0.1:7890", "allow_lan": false },
+  "inbound":  { "socks5_addr": "127.0.0.1:2891", "http_addr": "127.0.0.1:2890", "allow_lan": false },
   "outbound": { "type": "direct" },            // 内置模式的出口：direct | socks5
   "rules":    [ { "kind": "final", "value": "", "action": "proxy" } ],
-  "api":      { "addr": "127.0.0.1:9090" },
+  "api":      { "addr": "127.0.0.1:3090" },
   "core": {
     "id": "mihomo",                            // 空 = 用内置内核
     "auto_start": true,
